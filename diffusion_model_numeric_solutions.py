@@ -2,10 +2,11 @@
 from scipy.integrate import odeint, cumtrapz, trapz
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 
 import brewer2mpl
 
+
+# Solver functions
 def param():
     """
     Set the parameters necessary for solving the PDE numerically
@@ -17,42 +18,34 @@ def param():
     kb = 1.38e-23 # m^2 kg / K s^2
     epsSi = 11.68 * 8.85e-12 # C/Vm
     Dp = mu * kb * T / q
-    qInit = 200*q
 
-    # mu = 1
-    # q = 1
-    # T = 1
-    # kb = 1
-    # epsSi = 1
-    # Dp = 1
-
-    return mu, q, T, kb, epsSi, Dp, qInit
+    return mu, q, T, kb, epsSi, Dp
 
 
-def GroomDiffusionEquation(length=1e-6):
+def GroomDiffusionEquation(qinit=1.6e-17, length=1e-6, rmax=100.e-6, nr=1000, tend=0.1e-6, nt=1000):
     """
     Solves the PDE outlined in the Groom papers in spherical coordinates (for simple case of no E field)
     """
-    rmax = 60.e-6 # 60 um
-    # rmax = 10
-    nr = 1000
-    dr = rmax / nr
-    t = np.linspace(0, 0.1e-6, 1000) # 10 us max time
 
-    mu, q, T, kb, eps, Dp, qInit = param()
+    # define constants
+    dr = rmax / nr
+    r = np.arange(0, rmax, dr)
+    t = np.linspace(0, tend, nt) # 10 us max time
+    mu, q, T, kb, eps, Dp = param()
 
     # Define initial conditions
     p0 = np.zeros(nr)
-    p0[0:int(length/dr)] = qInit/length**3
+    p0[0:int(length/dr)] = qinit/length**3
     # p0[1] = p0[0]
 
-    chargeDensity = odeint(GroomDiffusionFunc, p0, t, args=(dr, Dp))
+    p = odeint(GroomDiffusionFunc, p0, t, args=(dr, Dp))
 
-    # Normalize the charge density distribution
-    chargeDensitySum = np.sum(chargeDensity, axis=1)*dr
-    chargeDensity /= np.reshape(np.repeat(chargeDensitySum, nr), chargeDensity.shape)
+    # Normalize the charge density distribution to qinit
+    alpha = qinit / trapz(4 * np.pi * p * r**2, r, dr)
+    p *= np.repeat(np.reshape(alpha, (alpha.size, 1)), nr, axis=1)
 
-    return chargeDensity, dr, t
+
+    return p, r, t
 
 def GroomDiffusionFunc(p, t, dr, Dp):
     """
@@ -101,40 +94,51 @@ def integrateRho(rho, r, dr):
 
     return integral
 
-def CoulombDiffusionEquation(qInit=125*1.6e-19, length=2.e-6):
+def CoulombDiffusionEquation(qinit=1.6e-17, length=1e-6, rmax=100.e-6, nr=1000, tend=0.1e-6, nt=1000):
     """
     Solves the PDE outlined in the Groom papers in spherical coordinates for case of mutual repulsion between generated charge
     """
 
     # define constants
-    rmax = 100.e-6 # 100 um
-    nr = 1000
     dr = rmax / nr
-    t = np.linspace(0, 0.1e-6, 2000) # 10 us max time
-
-
-    mu, q, T, kb, eps, Dp, _ = param()
+    r = np.arange(0, rmax, dr)
+    t = np.linspace(0, tend, nt) # 10 us max time
+    mu, q, T, kb, eps, Dp = param()
 
     # Define initial conditions
     p0 = np.zeros(nr)
-    p0[0:int(length/dr)] = qInit/length**3
+    p0[0:int(length/dr)] = qinit/length**3
 
     p = odeint(CoulombDiffusionFunc, p0, t, args=(dr, Dp, eps, mu))
 
     # Normalize the charge density distribution
-    pSum = np.sum(p, axis=1)*dr
-    p /= np.reshape(np.repeat(pSum, nr), p.shape)
+    alpha = qinit / trapz(4 * np.pi * p * r**2, r, dr)
+    p *= np.repeat(np.reshape(alpha, (alpha.size, 1)), nr, axis=1)
 
 
-    return p, dr, t
+    return p, r, t
 
-def PiecewiseDiffusionEquation(teff=10e-9, qinit=1.6e-17, length=1e-6, rmax=100.e-6, nr=1000, tend=0.1e-6):
+def PiecewiseDiffusionEquation(teff=10e-9, qinit=1.6e-17, length=1e-6, rmax=100.e-6, nr=1000, tend=0.1e-6, nt=1000):
     """
     Solving the diffusion equation for two regimes 1) when electron and hole charge clouds overlap and therefore no efield present 2) charge clouds seperate and mutual coulomb repulsion matters. Regimes seperates by some t_eff
+
+    Inputs:
+        teff - time at which the model switches from diffusion only to diffusion and coulomb interactions
+        qinit - initial amount of charge distibuted in a sphere (C)
+        length - radius of the initial distribution of charge (m)
+        rmax - maximumt size of the simulation (m)
+        nr - number of distance points. rmax/nr is the position step
+        tend - final time of the simulation (s)
+        nt - number of time points. tend/nt is the time step
+
+    Outputs:
+        p - radial charge density distribution. NxM matrix (timexdistance)
+        r - radial axis Mx1 array
+        t - time axis Nx1 array
     """
 
     dr = rmax / nr
-    t = np.linspace(0, tend, 1000)
+    t = np.linspace(0, tend, nt)
     dt = t[1] - t[0]
     r = np.arange(0, rmax, dr)
 
@@ -169,10 +173,12 @@ def PiecewiseDiffusionEquation(teff=10e-9, qinit=1.6e-17, length=1e-6, rmax=100.
 
     # normalize p
     alpha = qinit / trapz(4 * np.pi * p * r**2, r, dr)
-    print(alpha)
     p *= np.repeat(np.reshape(alpha, (alpha.size, 1)), nr, axis=1)
 
     return p, r, t
+
+
+# Analysis functions that can be called in main
 
 def testPiecewiseSolution():
 
@@ -210,10 +216,9 @@ def ComparisonOfEandNoEField():
     fig, axs = plt.subplots(2,2)
     axs = axs.flatten()
 
-    pNoE, dr, t = GroomDiffusionEquation()
-    pE, dr, t = CoulombDiffusionEquation()
+    pNoE, rr, t = GroomDiffusionEquation()
+    pE, rr, t = CoulombDiffusionEquation()
 
-    rAxis = np.arange(0, p.shape[1]*dr*1e6, dr*1e6)
     dt = t[1] - t[0]
 
     tstartIndex = 1
@@ -225,8 +230,8 @@ def ComparisonOfEandNoEField():
             ax.set_xlabel('Radial Distance ($\mu m$)', fontsize=14)
         ax.set_title('Time=%.2f $\mu s$' % ((tstartIndex + i*tstepIndex)*dt*1e6), fontsize=16)
 
-        ax.plot(rAxis, pE[(tstartIndex + i*tstepIndex),:]/1e6, color='k', linewidth=3, label='Coulomb')
-        ax.plot(rAxis, pNoE[(tstartIndex + i*tstepIndex),:]/1e6, color='r', linewidth=3, label='No Coulomb')
+        ax.plot(rr*1e6, pE[(tstartIndex + i*tstepIndex),:]/1e6, color='k', linewidth=3, label='Coulomb')
+        ax.plot(rr*1e6, pNoE[(tstartIndex + i*tstepIndex),:]/1e6, color='r', linewidth=3, label='No Coulomb')
 
         ax.legend()
 
@@ -248,12 +253,11 @@ def EnergyDependenceOfCoulomb():
 
 
     for i, q in enumerate(ncharge):
-        p, dr, t = CoulombDiffusionEquation(q, length=length)
-        rAxis = np.arange(0, p.shape[1]*dr* 1e6, dr* 1e6)
+        p, rr, t = CoulombDiffusionEquation(qinit=q, length=length)
         dt = t[1] - t[0]
         tIndex = int(timeslice/dt)
 
-        ax.plot(rAxis, p[tIndex,:]/1e6, linewidth=3, color=bmap[i])
+        ax.plot(rr*1e6, p[tIndex,:]/1e6, linewidth=3, color=bmap[i])
 
     ax.legend([str(x) for x in energy])
     ax.set_ylabel('Charge Density', fontsize=16)
@@ -273,12 +277,11 @@ def InitialRadiusDependence():
     bmap = brewer2mpl.get_map('Set2', 'Qualitative', 8).mpl_colors
 
     for i, l in enumerate(length):
-        p, dr, t = GroomDiffusionEquation(length=l*1e-6)
-        rAxis = np.arange(0, p.shape[1]*dr* 1e6, dr* 1e6)
+        p, rr, t = GroomDiffusionEquation(length=l*1e-6)
         dt = t[1] - t[0]
         tIndex = int(timeslice/dt)
 
-        ax.plot(rAxis, p[tIndex,:]/1e6, linewidth=3, color=bmap[i])
+        ax.plot(rr*1e6, p[tIndex,:]/1e6, linewidth=3, color=bmap[i])
 
     ax.legend([str(x) + ' $\mu m$'  for x in length])
     ax.set_ylabel('Charge Density', fontsize=16)
@@ -331,7 +334,6 @@ def energyDependencePiecewise():
     ax.set_title('Charge Distribution from Using Piecewise Diffusion model After 25 ns. teff=%.1f ns, Ri=1$\mu m$'%(teff*1e9), fontsize=18)
     plt.show()
 
-
 def projectSphericalonXY(f, r, dphi, dtheta, dx, dy):
     """
     Takes the radial distribution function and projects it onto the xy plane.
@@ -342,7 +344,7 @@ def projectSphericalonXY(f, r, dphi, dtheta, dx, dy):
 
     # define the infintesimal changes
     phi = np.arange(0, 2*np.pi, dphi)
-    # theta = np.arange(0, np.pi, dtheta)
+    theta = np.arange(0, np.pi, dtheta)
     dr = np.diff(r)[0]
 
     xval = []
@@ -370,7 +372,7 @@ def testProjectSphere():
     dtheta = 1
     dx = 0.1
 
-    f, x = projectSphericalonX(f, r, dphi, dtheta, dx)
+    f, x = projectSphericalonXY(f, r, dphi, dtheta, dx)
 
     fig, ax = plt.subplots()
     ax.plot(x, f, linewidth=3)
@@ -378,10 +380,6 @@ def testProjectSphere():
 
 
 if __name__ == '__main__':
-
-
-
-
 
     # ComparisonOfEandNoEField()
     # EnergyDependenceOfCoulomb()
