@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import brewer2mpl
+from mpl_toolkits import mplot3d
 
 
 # Solver functions
@@ -12,7 +13,7 @@ def param():
     Set the parameters necessary for solving the PDE numerically
     """
 
-    mu = 0.200 # m^2/Vs
+    mu = 0.230 # m^2/Vs
     q = 1.6e-19 # C
     T = 130 # K
     kb = 1.38e-23 # m^2 kg / K s^2
@@ -142,7 +143,7 @@ def PiecewiseDiffusionEquation(teff=10e-9, qinit=1.6e-17, length=1e-6, rmax=100.
     dt = t[1] - t[0]
     r = np.arange(0, rmax, dr)
 
-    mu, q, T, kb, eps, Dp, _ = param()
+    mu, q, T, kb, eps, Dp = param()
 
     # define the two time regimes
     t1regime = t[0:int(teff/dt)]
@@ -179,7 +180,6 @@ def PiecewiseDiffusionEquation(teff=10e-9, qinit=1.6e-17, length=1e-6, rmax=100.
 
 
 # Analysis functions that can be called in main
-
 def testPiecewiseSolution():
 
     fig, ax = plt.subplots()
