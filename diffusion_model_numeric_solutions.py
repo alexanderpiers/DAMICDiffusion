@@ -298,86 +298,118 @@ def energyDependencePiecewise():
     rinit = 0.5e-6
     teffArray = np.linspace(1e-9, 3e-9, 5)
     tsample = 20e-9
-    E = np.linspace(100, 15000, 10)
+    E = np.linspace(0, 15000, 10)
     w = 3.8
+    drho = 0.5e-6
+    dz = 0.5e-6
     ncharge = E/w
     pall = []
     legstring = []
     fwhmMatrix =  []
 
-    # for teff in teffArray:
-    fwhmArray = []
-    for n in ncharge:
-        p, rr, t = PiecewiseDiffusionEquation(teff=teff, qinit=n*1.6e-19, length=rinit)
-        dt = np.diff(t)[0]
-        print(dt)
-        pfinal = p[int(tsample/dt),:]
-        fwhm = rr[np.nonzero(pfinal < pfinal[0]/2)[0][0]]
-        fwhmArray.append(fwhm)
-        legstring.append('E=%.2f keV, FWHM=%.1f'%(n*w/1000, fwhm*2*1e6))
-        pall.append(pfinal/n)
-    fwhmMatrix.append(fwhmArray)
+    for teff in teffArray:
+        fwhmArray = []
+        for n in ncharge:
 
-    # fwhmMatrix = np.array(fwhmMatrix)
-    # ax.plot(E/1000, fwhmMatrix.T*1e6, linewidth=3)
-    # ax.legend(['teff=%0.1f ns'%(x*1e9) for x in teffArray], fontsize=16)
-    # ax.set_ylabel('FWHM ($\mu m$)', fontsize=16)
-    # ax.set_xlabel('Energy (keV)', fontsize=16)
-    # ax.set_title('Energy vs FWHM for different $t_{eff}$', fontsize=18)
+            if n == 0:
+                p, rr, t = GroomDiffusionEquation(qinit=100*1.6e-19, length=rinit)
+                n = 100
+            else:
+                p, rr, t = PiecewiseDiffusionEquation(teff=teff, qinit=n*1.6e-19, length=rinit)
+            dt = np.diff(t)[0]
+            print(dt)
+            pfinal = p[int(tsample/dt),:]
+
+            # Convert from radial to x
+            theta = np.linspace(0, np.pi, 4000)
+            pfinalMatrix = np.reshape(np.repeat(pfinal, theta.size), (pfinal.size, theta.size))
+            rrmesh, thetamesh = np.meshgrid(rr, theta, indexing='ij')
+
+            px, x = ProjectSphere2Rho(pfinalMatrix, rrmesh, thetamesh, drho, dz)
+
+            fwhm = x[np.nonzero(px < px[0]/2)[0][0]]
+            fwhm = np.interp(px[0]/2, np.flipud(px), np.flipud(x))
+            fwhmArray.append(fwhm)
+            legstring.append('E=%.2f keV, FWHM=%.1f'%(n*w/1000, fwhm*2*1e6))
+            pall.append(px/n)
+        fwhmMatrix.append(fwhmArray)
+
+    fwhmMatrix = np.array(fwhmMatrix)
+    ax.plot(E/1000, fwhmMatrix.T*1e6, linewidth=3)
+    ax.legend(['teff=%0.1f ns'%(x*1e9) for x in teffArray], fontsize=16)
+    ax.set_ylabel('FWHM ($\mu m$)', fontsize=16)
+    ax.set_ylim([0,1.05*fwhmMatrix.max()*1e6])
+    ax.set_xlabel('Energy (keV)', fontsize=16)
+    ax.set_title('Energy vs FWHM for different $t_{eff}$', fontsize=18)
 
 
-    pall = np.array(pall)
-    ax.plot(rr*1e6, pall.T, linewidth=2)
-    ax.legend(legstring, fontsize=16)
-    ax.set_ylabel('Charge Density Distribution', fontsize=16)
-    ax.set_xlabel('Radial Distance ($\mu m$)', fontsize=16)
-    ax.set_title('Charge Distribution from Using Piecewise Diffusion model After 25 ns. teff=%.1f ns, Ri=1$\mu m$'%(teff*1e9), fontsize=18)
+    # pall = np.array(pall)
+    # ax.plot(x[2:]*1e6, pall[:,2:].T, linewidth=2)
+    # ax.legend(legstring, fontsize=16)
+    # ax.set_ylabel('Charge Density Distribution', fontsize=16)
+    # ax.set_xlabel('X ($\mu m$)', fontsize=16)
+    # ax.set_title('Charge Distribution from Using Piecewise Diffusion model After 20 ns. teff=%.1f ns, Ri=1$\mu m$'%(teff*1e9), fontsize=18)
     plt.show()
 
-def projectSphericalonXY(f, r, dphi, dtheta, dx, dy):
+def Sphere2Cyl(f, rr, theta, drho, dz):
     """
-    Takes the radial distribution function and projects it onto the xy plane.
-    Returns a slice on the x-axis (but for spherically symmetric distributions it shouldn't matter)
+    Converts a function in spherical coordinates to cylindrical coordinates. Theta is the polar angle
 
-    Convention of physcicist. Phi is the azimuthal angle and theta is the polar angle
+    f - two dimensional matrix describing the function at each r and theta value
+    r, theta - 2d meshgrid of coordinates.
+
+    All mesh grids should be in the {ij} indexing scheme. Ie first dimension is r, second dimension is theta
     """
 
-    # define the infintesimal changes
-    phi = np.arange(0, 2*np.pi, dphi)
-    theta = np.arange(0, np.pi, dtheta)
-    dr = np.diff(r)[0]
+    # Find the cylindrical coordinates of all spherical pairs
+    rho = rr * np.sin(theta)
+    z = rr * np.cos(theta)
+    dr = np.diff(rr, axis=0)[0][0]
+    fWeight = f*rr*dr
 
-    xval = []
-    yval = []
-    weight = []
+    # Calculate the number of bins to histogram given the range and the wanted spacing of the axis
+    nbinsRho = int((rho.max() - rho.min()) / drho)
+    nbinsZ = int((z.max() - z.min()) / dz)
 
-    for i in r:
-        for j in phi:
-            for k in theta:
-                xval.append(i * np.sin(j) * np.cos(k))
-                yval.append(i * np.sin(j) * np.sin(k))
-                weight.append(i**2 * dr * dphi)
+    # Find the value of the cylindrical function by histogramming the data we have
+    fCyl, rhoEdges, zEdges = np.histogram2d(rho.flatten(), z.flatten(), bins=(nbinsRho, nbinsZ), weights=fWeight.flatten())
 
+    rhoAx = rhoEdges[1:] - np.diff(rhoEdges)/2
+    zAx = zEdges[1:] - np.diff(zEdges)/2
 
-    f, edges = np.histogram(xval, bins=int(max(xval)/dx), weights=weight)
-    x = edges[1:] - np.diff(edges)/2
+    return fCyl, rhoAx, zAx
 
-    return f, x
+def ProjectSphere2Rho(f, rr, theta, drho, dz):
+    """
+    Takes the function in spherical coordinates and projects it onto the xy plane (ie rho). Assumes azimuthal symmetry is maintained
+    """
 
-def testProjectSphere():
+    fCyl, rhoAx, _ = Sphere2Cyl(f, rr, theta, drho, dz)
 
-    r = np.linspace(0, 10, 2000)
-    dphi = 2*np.pi/2000
-    f = np.ones(r.size)
-    dtheta = 1
-    dx = 0.1
+    # sum over the z axis. Effect to integrating out the variable and projecting it on the rho plane
+    fRho = np.sum(fCyl, axis=1)
 
-    f, x = projectSphericalonXY(f, r, dphi, dtheta, dx)
+    return fRho, rhoAx
+
+def testCylConversion():
+
+    r = np.linspace(0, 1, 2000)
+    theta = np.arange(0, np.pi, np.pi/4000)
+
+    rmesh, thetamesh = np.meshgrid(r, theta, indexing='ij')
+
+    f = np.reshape(np.repeat(np.linspace(0,1,r.size)**0, theta.size), (rmesh.shape))
+
+    drho = 0.01
+    dz = 0.01
+
+    fCyl, rhoAx, zAx = Sphere2Cyl(f, rmesh, thetamesh, drho, dz)
 
     fig, ax = plt.subplots()
-    ax.plot(x, f, linewidth=3)
-    plt.show()
 
+    y, x = ProjectSphere2Rho(f, rmesh, thetamesh, drho, dz)
+    ax.plot(x,y)
+    plt.show()
 
 if __name__ == '__main__':
 
@@ -386,7 +418,7 @@ if __name__ == '__main__':
     # InitialRadiusDependence()
     # PiecewiseDiffusionEquation(qinit=1)
     # testPiecewiseSolution()
-    # testProjectSphere()
+    # testCylConversion()
     energyDependencePiecewise()
     plt.show()
 
