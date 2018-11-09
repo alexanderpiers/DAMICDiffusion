@@ -3,6 +3,12 @@
 #include <TImage>
 #include <algorithm>
 
+void setLabels(TH2D *h2, TCanvas *c){
+
+	c->Modified(); c->Update();
+	return;
+}
+
 // Plots the 2D histogam with 
 TH2D* histEnergyvDistance(TTree *tree, double zmin=400, double zmax=425){
 	// Make definitions
@@ -86,8 +92,9 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin=400, double zmax=425){
 	char titleString[100];
 	sprintf(titleString, "Energy and spread hist for depth range %.1f to %0.1f um", zmin,  zmax);
 	h2->SetTitle(titleString);
+	h2->GetYaxis()->SetTitle("#frac{#DeltaE}{#Deltas}  (keV/Pixel)");
+	h2->GetXaxis()->SetTitle("Distance from Track (Pixels)");
 	h2->Draw("colz");
-
 	return h2;
 
 
@@ -172,8 +179,8 @@ TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFil
 		sprintf(titlestring, "Diffusion of charge between z=%.1f and z=%.1f", zmin, zmax);
 	}
 	h1->SetTitle(titlestring);
-	h1->SetXTitle("Distance (pixels)");
-	h1->SetYTitle("Amount of charge (keV)");
+	h1->GetXaxis()->SetTitle("Distance (pixels)");
+	h1->GetYaxis()->SetTitle("Amount of charge (keV)");
 	h1->SetLineWidth(3);
 	//h1->SetStats(false);
 	TF1* f = new TF1("f1", "gaus", 0, 4);
