@@ -1,6 +1,6 @@
 #include <cmath>
 
-const double CCDWidth = 675; // CCD width in um
+const double CCDWidth = 500; // CCD width in um
 
 void muonFilter(TChain* chain, char const * outfile, double minEnergy=500., double minccf=0.99)
 {
@@ -48,48 +48,50 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy=500., doub
 }
 void plot2DTrackDepth(TArrayD *x, TArrayD *y){
 	
-	// Get the limits of the track
-	double xmin = getArrayMin(x);
-	double xmax = getArrayMax(x);
-	double ymin = getArrayMin(y);
-	double ymax = getArrayMax(y);
+	// Convert TArrayD to regular array
+	double *xArr = x->GetArray(); double *yArr = y->GetArray();	
 	int n = x->GetSize();
+
+	// Get the limits of the track
+	double xmin = getArrayMin(xArr, n);
+	double xmax = getArrayMax(xArr, n);
+	double ymin = getArrayMin(yArr, n);
+	double ymax = getArrayMax(yArr, n);
+
 	// Create the 2D histogram
 	TH2D* h2 = new TH2D("tr", "track", ymax-ymin, xmin, xmin+ymax-ymin, ymax-ymin, ymin, ymax);
 	
-	// TH3D* h3 = new TH3D("tr", "depth track", xmax-xmin, xmin, xmax, ymax-ymin, ymin, ymax, 675, 0, CCDWidth);
 	// Get Depth of the track
-	TF1 * tf =  fitMuonLine(x, y);
-	TArrayD * z = getZ(x, y);
-	 h2->FillN(n, x->GetArray(), y->GetArray(), z->GetArray());
+	TF1 * tf =  fitMuonLine(xArr, yArr, n);
+	double *z = getZ(xArr, yArr, n);
+	h2->FillN(n, xArr, yArr, z);
 	
-	//for(int i=0; i<n; i++){
-	//	h3->Fill(x->GetAt(i), y->GetAt(i), z->GetAt(i));
-	//}
-	 h2->Draw("colz");
-	//h3->Draw();
-	 tf->Draw("same");
+	h2->Draw("colz");
+	tf->Draw("same");
 
 	return;
 
 }
 // Plot 2D histogram of track
-TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, TF1* fit, bool plot=true){
+TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, bool plot=true){
+	
+	// Convert TArrayD to regular array
+	double *xArr = x->GetArray(); double *yArr = y->GetArray();	
+	int n = x->GetSize();
 
 	// Get the limits of the track
-	double xmin = getArrayMin(x);
-	double xmax = getArrayMax(x);
-	double ymin = getArrayMin(y);
-	double ymax = getArrayMax(y);
-
+	double xmin = getArrayMin(xArr, n);
+	double xmax = getArrayMax(xArr, n);
+	double ymin = getArrayMin(yArr, n);
+	double ymax = getArrayMax(yArr, n);
 	// Create the 2D histogram
 	TH2D* h2 = new TH2D("tr", "track", xmax-xmin, xmin, xmax, ymax-ymin, ymin, ymax);
 
 	// Fill the histogram
-	h2->FillN(x->GetSize(), x->GetArray(), y->GetArray(), q->GetArray());
+	h2->FillN(n, xArr, yArr, q->GetArray());
 
 	// Do the fit
-	*fit = *fitMuonLine(x, y);
+	TF1 *fit = fitMuonLine(xArr, yArr, n);
 	if(plot){
 		h2->Draw("colz");
 		fit->Draw("same");
@@ -97,36 +99,35 @@ TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, TF1* fit, bool plot=true){
 	return h2; 
 
 }
-void  pixel2pos(TArrayD* pixel){
+void  pixel2pos(double* pixel, int n){
 	
-	for(int i=0; i<pixel->GetSize(); i++){
-		(*pixel)[i] +=  0.5;
+	for(int i=0; i<n; i++){
+		pixel[i] +=  0.5;
 	}
 }
 
-void pos2pixel(TArrayD* pixel){
-	for(int i=0; i<pixel->GetSize(); i++){
-		(*pixel)[i] -= 0.5;
+void pos2pixel(double* pixel, int n){
+	for(int i=0; i<n; i++){
+		pixel[i] -= 0.5;
 	}
 }
 
-TF1 * fitMuonLine(TArrayD *x, TArrayD *y){
+TF1 * fitMuonLine(double *x, double *y, int n){
 	
-	int n = x->GetSize();
-	double xmin = getArrayMin(x);
-	double xmax = getArrayMax(x);
+	double xmin = getArrayMin(x, n);
+	double xmax = getArrayMax(x, n);
 	
 	// Create TGraph object
-	pixel2pos(x); pixel2pos(y);
-	TGraph* gr = new TGraph(n, x->GetArray(), y->GetArray());
-	pos2pixel(x); pos2pixel(y);
+	pixel2pos(x, n); pixel2pos(y, n);
+	TGraph* gr = new TGraph(n, x, y);
+	pos2pixel(x, n); pos2pixel(y, n);
 	// gr->Draw("apsame");
 	// Create TF1 Object
 	TF1* tf = new TF1("linear_fit","[0] + [1]*x", xmin, xmax);
 	
 	// Estimate slope and intercept
-	double slopeEstimate = ((*y)[int(3*n/4)]-(*y)[int(n/4)])/((*x)[int(3*n/4)]-(*x)[int(n/4)]);
-	double interceptEstimate = (*y)[0] - slopeEstimate*(*x)[0];
+	double slopeEstimate = (y[int(3*n/4)]-y[int(n/4)])/(x[int(3*n/4)]-x[int(n/4)]);
+	double interceptEstimate = y[0] - slopeEstimate*x[0];
 	tf->SetParameter(interceptEstimate, slopeEstimate);
 	
 	// Fit the function tf to the data
@@ -138,17 +139,18 @@ TF1 * fitMuonLine(TArrayD *x, TArrayD *y){
 	return tf;
 }
 
-TArrayD*  getZ(TArrayD *x, TArrayD *y){
+double*  getZ(double *x, double *y, int n){
 
-	int n = x->GetSize();
-	TArrayD *z = new TArrayD(n);
-	double xmin = getArrayMin(x);
-	double xmax = getArrayMax(x);
-	position ip = getInitialPosition(x, y);
+	
+	double *z = new double[n];
+	double xmin = getArrayMin(x, n);
+	double xmax = getArrayMax(x, n);
+	position ip = getInitialPosition(x, y, n);
 	double xi = ip.x; double yi = ip.y;
+
 	// Get the best fit of the data
 	TF1* fit;
-	fit = fitMuonLine(x, y);
+	fit = fitMuonLine(x, y, n);
 
 	// Calculate the slope in the z direction
 	double slope = fit->GetParameter(1);
@@ -163,10 +165,10 @@ TArrayD*  getZ(TArrayD *x, TArrayD *y){
 	vx = 1/sqrt(1 + pow(slope,2));
 	vy = slope/sqrt(1 + pow(slope,2));
 	for(int i=0; i<n; i++){
-		sx = (*x)[i] + 0.5 - xi;
-		sy = (*y)[i] + 0.5 - yi;
+		sx = x[i] + 0.5 - xi;
+		sy = y[i] + 0.5 - yi;
 		r = vx*sx + vy*sy;
-		z->SetAt(abs(r)*zslope, i);
+		z[i] = abs(r)*zslope;
 	}
 
 	return z;
@@ -178,60 +180,57 @@ struct position{
 	double y;
 };
 
-position getInitialPosition(TArrayD *x, TArrayD *y){
+position getInitialPosition(double *x, double *y, int n){
 
-	int n = x->GetSize();
-	double xmin = getArrayMin(x);
-	double xmax = getArrayMax(x);
+	double xmin = getArrayMin(x, n);
+	double xmax = getArrayMax(x, n);
 	double xmean = xmin + (xmax - xmin)/2;
 	
 	// Compute the weighted x position
 	double xw = 0;
 	for(int i=0; i<n; i++){
-		xw += (*x)[i];
+		xw += x[i];
 	}	
 	xw /= n;
 
 	// Gets the slope track because it is necessary for distiguishing to inital values
-	TF1 * tf = fitMuonLine(x, y);
+	TF1 * tf = fitMuonLine(x, y, n);
 	double slope = tf->GetParameter(1);
 
 	position ip;
 	if(xw > xmean){
-		ip.x = getArrayMin(x);
+		ip.x = getArrayMin(x, n);
 		ip.y = tf->Eval(ip.x);
 	}else if (xw < xmean){
-		ip.x = getArrayMax(x);
+		ip.x = getArrayMax(x, n);
 		ip.y = tf->Eval(ip.x);
 	}else{
-		ip.x = x->GetAt(0);
-		ip.y = y->GetAt(0);
+		ip.x = x[0];
+		ip.y = y[0];
 	}  
 	
 	return ip;
 }
 
-double getArrayMax(TArrayD* arr){
+double getArrayMax(double* arr, int n){
 	// Gets and returns the maximum value from the array
-	int n = arr->GetSize();
 	double max = 0;
 
 	for(int i=0; i<n; i++){
-		if(arr->GetAt(i) > max) max=arr->GetAt(i);
+		if(arr[i] > max) max=arr[i];
 	}
 	
 	return max;
 }
 
 
-double getArrayMin(TArrayD* arr){
+double getArrayMin(double* arr, int n){
 	// Gets and returns the maximum value from the array
-	int n = arr->GetSize();
 	double min;
 
 	for(int i=0; i<n; i++){
-		if(i == 0) min = arr -> GetAt(i);
-		if(arr->GetAt(i) < min) min = arr->GetAt(i);
+		if(i == 0) min = arr[i];
+		if(arr[i] < min) min = arr[i];
 	}
 	
 	return min;
