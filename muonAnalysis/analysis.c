@@ -13,7 +13,8 @@ void setLabels(TH2D *h2, TCanvas *c){
 TH2D* histEnergyvDistance(TTree *tree, double zmin=400, double zmax=425){
 	// Make definitions
 	TH2D *h2 = new TH2D();
-	TArrayD *x, *y, *q, *z;
+	TArrayD *x, *y, *q;
+	double *xx, *yy, *zz;
 	double conversionFactor = 10300/6.4;
 	int n, zcount;
 	TF1 *tf;
@@ -29,24 +30,20 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin=400, double zmax=425){
 	for(int i=0; i<nTracks; i++)
 	{
 		tree->GetEntry(i);
-		tf = fitMuonLine(x, y);
+		xx = x->GetArray(); yy = y->GetArray();
+		n = x->GetSize();
+		tf = fitMuonLine(xx, yy, n);
 		inter = tf->GetParameter(0);
 		slope = -1/tf->GetParameter(1);
-		z = getZ(x, y);
+		zz = getZ(xx, yy, n);
 		vx = 1/sqrt(1 + pow(slope,2));
 		vy = slope/sqrt(1 + pow(slope,2));
-		ip = getInitialPosition(x, y);
+		ip = getInitialPosition(xx, yy, n);
 		// Calculate the length of the line segment
-		xmin = getArrayMin(x); xmax = getArrayMax(x);
+		xmin = getArrayMin(xx, n); xmax = getArrayMax(xx, n);
 		length = sqrt(pow(xmax-xmin,2) + pow(tf->Eval(xmax)-tf->Eval(xmin),2))*(zmax-zmin)/CCDWidth;
-		n = x->GetSize();
 
-		// Iterate over all pixel values to get the total energy of the slice
 		dedx = 0;
-	//	for(int j=0; j<n; j++){
-	//		dedx += (*q)[j];
-	//	}
-	//	dedx /= (conversionFactor*length);
 
 		// Create array to store values in acceptable z range
 		double *projArray = new double[10000];
@@ -59,7 +56,7 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin=400, double zmax=425){
 			projection = vx*sx + vy*sy;
 		//	projection = abs(inter + slope * ((*x)[j] + 0.5) - (*y)[j] - 0.5)/sqrt(1 + pow(slope,2));		
 			// if in the depth range, add to histogram
-			if((*z)[j] > zmin && (*z)[j] < zmax){
+			if(zz[j] > zmin && zz[j] < zmax){
 				// cout << "dist away: " << projection<< endl;
 				// Set hist limits appropriately
 				if(abs(projection) > projMax){
@@ -106,7 +103,8 @@ TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFil
 	TCanvas* c = new TCanvas("c", "charge_diffusion", 800, 600);
 	c->SetLogy();
 	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 25, 0, 5);
-	TArrayD *x, *y, *q, *z;
+	TArrayD *x, *y, *q;
+	double *xx, *yy, *zz;
 	double conversionFactor = 10300/6.4;
 	int n, zcount;
 	TF1 *tf;
@@ -123,17 +121,18 @@ TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFil
 	for(int i=0; i<nTracks; i++){
 	
 		tree->GetEntry(i);
-		tf = fitMuonLine(x, y);
+		xx = x->GetArray(); yy = y->GetArray();
+		n = x->GetSize();
+		tf = fitMuonLine(xx, yy, n);
 		slope = -1/tf->GetParameter(1);
-		z = getZ(x, y);
+		zz = getZ(xx, yy, n);
 		vx = 1/sqrt(1 + pow(slope,2));
 		vy = slope/sqrt(1 + pow(slope,2));
-		ip = getInitialPosition(x, y);
+		ip = getInitialPosition(xx, yy, n);
 		
 		// Calculate the length of the line segment
-		xmin = getArrayMin(x); xmax = getArrayMax(x);
+		xmin = getArrayMin(xx, n); xmax = getArrayMax(xx, n);
 		length = sqrt(pow(xmax-xmin,2) + pow(tf->Eval(xmax)-tf->Eval(xmin),2))*(zmax-zmin)/CCDWidth;
-		n = x->GetSize();
 		
 		deltaray = false;
 		zcount = 0;
@@ -146,12 +145,12 @@ TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFil
 			projection = vx*sx + vy*sy;
 		
 			// if in the depth range, add to histogram
-			if((*z)[j] > zmin && (*z)[j] < zmax && abs(projection) < 4){
+			if(zz[j] > zmin && zz[j] < zmax && abs(projection) < 4){
 				zAcceptableArray[zcount] = abs(projection);
 				qAcceptableArray[zcount] = (*q)[j]/conversionFactor;
 				dedx += (*q)[j]/conversionFactor;
 				zcount++;
-			}else if((*z)[j] > zmin && (*z)[j] < zmax && abs(projection) >= 4){
+			}else if(zz[j] > zmin && zz[j] < zmax && abs(projection) >= 4){
 				deltaray = true;
 			}
 
@@ -178,11 +177,13 @@ TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFil
 	}else{
 		sprintf(titlestring, "Diffusion of charge between z=%.1f and z=%.1f", zmin, zmax);
 	}
+
+	// Set histogram parameters
 	h1->SetTitle(titlestring);
 	h1->GetXaxis()->SetTitle("Distance (pixels)");
 	h1->GetYaxis()->SetTitle("Amount of charge (keV)");
 	h1->SetLineWidth(3);
-	//h1->SetStats(false);
+
 	TF1* f = new TF1("f1", "gaus", 0, 4);
 	f->SetParameter(1,0);
 	h1->Fit("f1", "QR", 0, 1.5);
