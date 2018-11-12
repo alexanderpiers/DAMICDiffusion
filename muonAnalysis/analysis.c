@@ -76,7 +76,7 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin=400, double zmax=425, bool re
 
 }
 
-TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFilt=false, double emin=2., double emax=4.){
+TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFilt=false, double emin=2., double emax=4., bool deltaRayRejection=true){
 
 	// Define parameters
 	TCanvas* c = new TCanvas("c", "charge_diffusion", 800, 600);
@@ -114,7 +114,7 @@ TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFil
 		double *qEnergyArray = new double[100000];
 		
 		// Finds the distance of each point in the track. Returns projArry and qEnergyArray with the correct depth filter		
-		getDistanceFromTrack(xx, yy, qq, n, zmin, zmax, true, projArray, qEnergyArray, dedx, zcount);
+		getDistanceFromTrack(xx, yy, qq, n, zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
 
 		// Fill the histogram
 		if(energyFilt){
