@@ -46,7 +46,7 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy=500., doub
 	cout << "Total muon entries: " << newtree->GetEntries() << endl; 
 
 }
-void plot2DTrackDepth(TArrayD *x, TArrayD *y){
+TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot=true){
 	
 	// Convert TArrayD to regular array
 	double *xArr = x->GetArray(); double *yArr = y->GetArray();	
@@ -66,10 +66,12 @@ void plot2DTrackDepth(TArrayD *x, TArrayD *y){
 	double *z = getZ(xArr, yArr, n);
 	h2->FillN(n, xArr, yArr, z);
 	
-	h2->Draw("colz");
-	tf->Draw("same");
-
-	return;
+	if(plot){	
+		h2->Draw("colz");
+		tf->Draw("same");
+	}
+	
+	return h2;
 
 }
 // Plot 2D histogram of track

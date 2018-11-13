@@ -230,18 +230,20 @@ void convertVal2Energy(double *q, int n,  double conversionFactor=10300/6.4){
 void saveAllHist(TTree *tree){
 	int n = tree->GetEntries();
 	TArrayD *x, *y, *z;
+	double *xx, *yy, *qq;
 	tree->SetBranchAddress("pixel_x", &x);
 	tree->SetBranchAddress("pixel_y", &y);
 	tree->SetBranchAddress("pixel_val", &q);
-	 
+	int m = 0;
 	for(int i=0; i<n; i++){
 		// Get the current entry from the tree
 		tree->GetEntry(i);
+		xx = x->GetArray(); yy = y->GetArray(); m = x->GetSize();
 
-		TH2D *h2 = new TH2D();
-		TF1 *fit = new TF1();	
-		h2 = plot2DTrack(x, y, q, fit, false);
-
+		TH2D *h2 = new TH2D();	
+		h2 = plot2DTrackDepth(x, y, false);
+		TF1 * fit = new TF1();
+		fit = fitMuonLine(xx, yy, m);
 		// Create canvase and image
 		TCanvas *c = new TCanvas;
 		h2->Draw("colz");
@@ -251,7 +253,7 @@ void saveAllHist(TTree *tree){
 
 		// Create the filename
 		char *titlestr = new char[100];
-		sprintf(titlestr, "/usr/lusers/apiers/images/track%i.png", i);
+		sprintf(titlestr, "/usr/lusers/apiers/images/depth_track%i.png", i);
 
 		// Write to file
 		img->WriteImage(titlestr);
