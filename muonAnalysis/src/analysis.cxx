@@ -138,10 +138,8 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool energyFilt, doubl
 	TF1* f = new TF1("f1", "gaus", 0, 4);
 	f->SetParameter(1,0);
 	h1->Fit("f1", "QR0", 0, 1.5);
-	gStyle->SetOptFit();
 	if(draw){
-		TCanvas* c = new TCanvas("c", "charge_diffusion", 800, 600);
-		c->SetLogy();
+		gStyle->SetOptFit();
 		h1->Draw("HIST");
 		h1->GetFunction("f1")->Draw("same");
 	}
@@ -164,21 +162,21 @@ void convertVal2Energy(double *q, int n,  double conversionFactor){
 // double deltaZ - zmax-zmin of each track, so the extent of the z direction of each point
 // double emin - minimum dE/dx
 // double emax - maximum dE/dx
-TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart,  double emin, double emax){
+TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend, double emin, double emax){
 	
 	// Define parameters
 	double z[500];
 	double sigma[500];
 	int tGraphCnt = 0;
 	int zmin, zmax;
-	int nSlices = int((CCDWidth-zstart)/deltaZ);
+	int nSlices = int((zend-zstart)/deltaZ);
 
 	// Iterate over all slices, getting the diffusion spread
 	for(int i=0; i<nSlices; i++){
 		zmin = i*deltaZ + zstart; zmax = (i+1)*deltaZ + zstart;
 		cout << zmin << "-" << zmax << endl;
 		TH1D* h = new TH1D();
-		h = histDistance(tree, zmin, zmax, true, emin, emax, true, true);
+		h = histDistance(tree, zmin, zmax, true, emin, emax, true, false);
 		z[i] = (zmin + zmax)/2;
 		cout << zmin << "-" << zmax << ":" << endl;
 		cout << h->GetFunction("f1")->GetParameter(2) << endl;

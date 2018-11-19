@@ -8,7 +8,7 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin=400, double zmax=425, bool re
 
 TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFilt=false, double emin=2., double emax=4., bool deltaRayRejection=true, bool draw=true);
 
-TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart,  double emin=3., double emax=4.);	
+TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend,  double emin=3., double emax=4.);	
 
 TGraph* plotSigmaVDepth();
 
