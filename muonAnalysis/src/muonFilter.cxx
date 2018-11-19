@@ -1,8 +1,8 @@
-#include <cmath>
+#include "muonFilter.h"
 
-const double CCDWidth = 500; // CCD width in um
+using namespace std;
 
-void muonFilter(TChain* chain, char const * outfile, double minEnergy=500., double minccf=0.99)
+void muonFilter(TChain* chain, char const * outfile, double minEnergy, double minccf)
 {
 	cout << "Creating new root file: " << outfile << endl;
 	TFile* muonData = new TFile(outfile, "recreate");
@@ -46,11 +46,12 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy=500., doub
 	cout << "Total muon entries: " << newtree->GetEntries() << endl; 
 
 }
-TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot=true){
+TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot){
 	
 	// Convert TArrayD to regular array
 	double *xArr = x->GetArray(); double *yArr = y->GetArray();	
 	int n = x->GetSize();
+	double *z;
 
 	// Get the limits of the track
 	double xmin = getArrayMin(xArr, n);
@@ -63,7 +64,7 @@ TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot=true){
 	
 	// Get Depth of the track
 	TF1 * tf =  fitMuonLine(xArr, yArr, n);
-	double *z = getZ(xArr, yArr, n);
+	getZ(xArr, yArr, z, n);
 	h2->FillN(n, xArr, yArr, z);
 	
 	if(plot){	
@@ -75,7 +76,7 @@ TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot=true){
 
 }
 // Plot 2D histogram of track
-TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, bool plot=true){
+TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, bool plot){
 	
 	// Convert TArrayD to regular array
 	double *xArr = x->GetArray(); double *yArr = y->GetArray();	
@@ -133,18 +134,15 @@ TF1 * fitMuonLine(double *x, double *y, int n){
 	tf->SetParameter(interceptEstimate, slopeEstimate);
 	
 	// Fit the function tf to the data
-	TFitResultPtr r = gr->Fit(tf, "SQR"); 
-	tf->SetParameter(r->Value(0), r->Value(1));	
+	gr->Fit(tf, "SQR"); 	
 	tf->SetLineColor(1);
 	tf->SetLineWidth(4);	
-
+	delete gr;
 	return tf;
 }
 
-double*  getZ(double *x, double *y, int n){
+void  getZ(double *x, double *y, double *z, int n){
 
-	
-	double *z = new double[n];
 	double xmin = getArrayMin(x, n);
 	double xmax = getArrayMax(x, n);
 	position ip = getInitialPosition(x, y, n);
@@ -173,14 +171,9 @@ double*  getZ(double *x, double *y, int n){
 		z[i] = abs(r)*zslope;
 	}
 
-	return z;
+	return;
 
 }
-
-struct position{
-	double x;
-	double y;
-};
 
 position getInitialPosition(double *x, double *y, int n){
 
@@ -237,3 +230,68 @@ double getArrayMin(double* arr, int n){
 	
 	return min;
 }
+
+// Helper function to do the computation calculating the distance from the best fit line. Boolean option to exclude delta rays with threshold cutoff of distance
+// Inputs:
+// double *x - array of x positions
+// double *y - array of y positions
+// double *q - array of the value of the CCD
+// int n - number of entries in the x and y arrays
+// double zmin - minimum z threshold
+// double zmax - maximum z threshold
+// bool resolveDeltaRay - if true, reject events where delta rays are detected
+// 
+// Outputs:
+// double *proj - array of distance from muon track line
+// double *q - array of the amount of charge in each 
+
+void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, double zmax,  bool resolveDeltaRay, double *proj, double *qEnergy, double &dedx, int &zcount){
+	
+	bool deltaray = false;
+	double sx, sy, projection;
+	// Get information about the line
+	TF1* tf = fitMuonLine(x, y, n);
+	double slope = -1/tf->GetParameter(1);
+	double *z = new double[n];
+	getZ(x, y, z, n);
+	double vx = 1/sqrt(1 + pow(slope,2));
+	double vy = slope/sqrt(1 + pow(slope,2));
+	position ip = getInitialPosition(x, y, n);
+	
+	// Calculate the length of the line segment
+	double xmin = getArrayMin(x, n); double xmax = getArrayMax(x, n);
+	double length = sqrt(pow(xmax-xmin,2) + pow(tf->Eval(xmax)-tf->Eval(xmin),2))*(zmax-zmin)/CCDWidth;
+	// Iterate over all x,y pairs in the
+
+	for(int j=0; j<n; j++){
+		sx = x[j] - ip.x + 0.5;
+		sy = y[j] - ip.y + 0.5;
+		projection = vx*sx + vy*sy;
+		
+		// if in the depth range, add to histogram
+		if(z[j] > zmin && z[j] < zmax && abs(projection) < 4){
+			proj[zcount] = abs(projection);
+			qEnergy[zcount] = q[j];
+			dedx += q[j];
+			zcount++;
+		}else if(z[j] > zmin && z[j] < zmax && abs(projection) >= 4){
+			deltaray = true;
+			if(!resolveDeltaRay){
+				proj[zcount] = abs(projection);
+				qEnergy[zcount] = q[j];
+				dedx += q[j];
+				zcount++;
+			}
+		}
+
+	}
+	delete z;	
+	// Find the energy per  unit length
+	dedx /= length;
+
+	// If delta ray detected set the zcount to 0. Then when we fill the histogram
+	if(deltaray && resolveDeltaRay) zcount=0;
+
+	return;
+}
+
