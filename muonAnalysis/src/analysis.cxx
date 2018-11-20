@@ -167,6 +167,7 @@ TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend, doub
 	// Define parameters
 	double z[500];
 	double sigma[500];
+	double sigmaerr[500];
 	int tGraphCnt = 0;
 	int zmin, zmax;
 	int nSlices = int((zend-zstart)/deltaZ);
@@ -174,16 +175,41 @@ TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend, doub
 	// Iterate over all slices, getting the diffusion spread
 	for(int i=0; i<nSlices; i++){
 		zmin = i*deltaZ + zstart; zmax = (i+1)*deltaZ + zstart;
-		cout << zmin << "-" << zmax << endl;
 		TH1D* h = new TH1D();
 		h = histDistance(tree, zmin, zmax, true, emin, emax, true, false);
 		z[i] = (zmin + zmax)/2;
 		cout << zmin << "-" << zmax << ":" << endl;
-		cout << h->GetFunction("f1")->GetParameter(2) << endl;
-		sigma[i] =  h->GetFunction("f1")->GetParameter(2);  
+		sigma[i] =  h->GetFunction("f1")->GetParameter(2);
+		sigmaerr[i] = h->GetFunction("f1")->GetParError(2);  
 		delete h;	
 	}
-	TGraph *tg = new TGraph(nSlices, z, sigma);
+	TGraphErrors *tg = new TGraphErrors(nSlices, z, sigma, NULL, sigmaerr);
+	
+	// Get fit the graph	
+	// Fit expected function to data
+	double q = 1.6e-19; // C
+	double T = 130.; // K 
+	double kb = 1.38e-11; // um^2 kg / K s^2 
+	double epsSi = 11.68 * 8.85e-18; // C / Vum 
+	double Vapp = 128.;
+	double rho = 3.9e-1*q; // um^-3 
+	double conversion =1.e-6;
+	
+	// TF1 *f = new TF1("sig_analytic", "TMath::Sqrt( [0]/[5]*TMath::Log([1]-x/([2]/[5] + [3])))*[4]", 1, CCDWidth);
+	TF1 *f = new TF1("sig_analytic", "[3]*TMath::Sqrt( [0]*TMath::Log([2]-x*[1]))", 0, CCDWidth);	
+	
+	f->SetParameter(0, -2*kb*T*epsSi/(rho*q));
+	f->SetParameter(1, 1/(epsSi*Vapp/(rho*CCDWidth)+0.5*CCDWidth));
+	f->FixParameter(2, 1);
+	f->FixParameter(3, conversion);
+	//return fit pointer;	
+	char titlestr[200];
+	sprintf(titlestr, "#sigma_{x} vs Depth. E_{min}=%.0f, E_{max}=%.0f.", emin, emax);
+	tg->SetTitle(titlestr);
+	tg->GetXaxis()->SetTitle("Depth (#mum)");
+	tg->GetYaxis()->SetTitle("#sigma_{x} (#mum)");
+	tg->Fit(f, "SR0");
+	
 	return tg;
 
 }
@@ -200,9 +226,9 @@ TGraph* plotSigmaVDepth(){
 	TGraph *tg = new TGraph(n, z, sig45);
 	tg->SetMarkerSize(1);
 	tg->SetMarkerStyle(5);
-	tg->SetTitle("Diffusion #\sigma_{x} vs. Depth of Interaction");
-	tg->GetXaxis()->SetTitle("Depth (#\mum)");
-	tg->GetYaxis()->SetTitle("#\sigma_{x} (#\mum)");
+	tg->SetTitle("Diffusion #sigma_{x} vs. Depth of Interaction");
+	tg->GetXaxis()->SetTitle("Depth (#mum)");
+	tg->GetYaxis()->SetTitle("#sigma_{x} (#mum)");
 	//tg->GetYaxis()->SetRangeUser(0, 1);
 	tg->Draw("AP");
 
@@ -215,22 +241,12 @@ TGraph* plotSigmaVDepth(){
 	double rho = 3.9e-1*q; // um^-3 
 	double conversion =1.e-6;
 	
-	// TF1 *f = new TF1("sig_analytic", "TMath::Sqrt( [0]/[5]*TMath::Log([1]-x/([2]/[5] + [3])))*[4]", 1, CCDWidth);
-	TF1 *f = new TF1("sig_analytic", "TMath::Sqrt( [0]*TMath::Log([2]-x*[1]))", 0, CCDWidth);	
+	TF1 *f = new TF1("sig_analytic", "[3]*TMath::Sqrt( [0]*TMath::Log([2]-x*[1]))", 0, CCDWidth);	
 	
 	f->SetParameter(0, -2*kb*T*epsSi/(rho*q));
 	f->SetParameter(1, 1/(epsSi*Vapp/(rho*CCDWidth)+0.5*CCDWidth));
 	f->FixParameter(2, 1);
-//	f->FixParameter(3, conversion);
-	// Set Parameters
-	//f->SetParameter(0, -2*kb*T*epsSi/q);
-	//f->FixParameter(1, 1);
-	//f->FixParameter(2, epsSi*Vapp/CCDWidth);
-	//f->FixParameter(3, 0.5*CCDWidth);
-	//f->FixParameter(4, conversion);
-	//f->SetParameter(5, rho);
-//	f->Draw("A");
-	//return f;	
+	f->FixParameter(3, conversion);
 	tg->Fit(f, "R");
 	cout << "Rho: " << f->GetParameter(5) << endl;
 	cout << f->Eval(100) << endl;
@@ -238,6 +254,54 @@ TGraph* plotSigmaVDepth(){
 
 	return tg;
 }
+
+// Function to look at the variation of de/dx as a function of track length
+TH1D* dedxFluctuation(TTree *tree, int i){
+	
+	// Define parameters
+	int n = 0;
+	double *x = new double[30000];
+	double *y = new double[30000];
+	double *energy = new double[30000];
+	
+	// Get array of x, y pixels
+	getXYE(tree, i, x, y, energy, n);
+	cout << x << "," << y << "," << energy <<  endl;	
+	
+	// Get slope of line and find track length
+	TF1 *tf = fitMuonLine(x, y, n);
+	double slope = tf->GetParameter(1);
+	double xrange = getArrayMax(x, n) - getArrayMin(x, n);
+	double yrange = xrange*slope;
+	double length = sqrt(pow(xrange, 2) + pow(yrange, 2));
+
+	position ip = getInitialPosition(x, y, n);
+	double xi = ip.x; double yi = ip.y;
+
+	// Create histogram
+	TH1D *h = new TH1D("h", "dE/dx v Position", int(length), 0, length);
+	TStyle *gStyle = new TStyle();
+
+	// Iterate over all points, find the position and energy, and add it to the histogram
+	double sx, sy, r;
+	double vx = 1 / sqrt(1 + pow(slope, 2));
+	double vy = slope / sqrt(1 + pow(slope, 2));
+	for(int i=0; i<n; i++){
+		sx = x[i] + 0.5 - xi;
+		sy = y[i] + 0.5 - yi;
+		r = vx*sx + vy*sy;
+
+		h->Fill(abs(r), energy[i]);
+	}
+
+	// Setting histogram parameters
+	h->SetTitle("Approx. #frac{dE}{dx} vs Position along the track");
+	h->GetXaxis()->SetTitle("Position Along Track (pixels)");
+	h->GetYaxis()->SetTitle("#frac{dE}{dx} (keV/pixel)");
+	gStyle->SetOptStat(0);
+	return h; 
+}
+
 void saveAllHist(TTree *tree){
 	int n = tree->GetEntries();
 	TArrayD *x, *y, *q;

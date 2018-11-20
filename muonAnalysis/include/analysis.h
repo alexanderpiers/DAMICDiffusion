@@ -1,6 +1,7 @@
 #include "muonFilter.h"
 #include "TStyle.h"
 #include "TObject.h"
+#include "TGraphErrors.h"
 
 void convertVal2Energy(double *q, int n,  double conversionFactor=10300/6.4);
 
@@ -11,6 +12,8 @@ TH1D* histDistance(TTree *tree, double zmin=400, double zmax=450, bool energyFil
 TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend,  double emin=3., double emax=4.);	
 
 TGraph* plotSigmaVDepth();
+
+TH1D* dedxFluctuation(TTree *tree, int i);
 
 void saveAllHist(TTree *tree);
 

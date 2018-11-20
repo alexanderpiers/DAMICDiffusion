@@ -295,3 +295,31 @@ void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, 
 	return;
 }
 
+// Wrapper function to extract x, y, and q arrays from a tree entry
+void getXYE(TTree *tree, int i, double *xx, double *yy, double *qq, int &n){
+
+	// Define parameters
+	TArrayD *x = new TArrayD(); TArrayD *y = new TArrayD(); TArrayD *q = new TArrayD();
+	double conversionFactor = 10300/6.4;
+	
+	// Set the appropriate branch address
+	tree->SetBranchAddress("pixel_x", &x);
+	tree->SetBranchAddress("pixel_y", &y);
+	tree->SetBranchAddress("pixel_val", &q);
+
+
+	tree->GetEntry(i);
+
+	// Conver TArrayD to double arrays
+	n = x->GetSize();
+	for(int j=0; j<n; j++){
+		xx[j] = x->GetAt(j); 
+		yy[j] = y->GetAt(j); 
+		qq[j] = q->GetAt(j) / conversionFactor; 
+
+	}
+	
+	// Remove TArrayD
+	delete x; delete y; delete q;
+	return;
+}

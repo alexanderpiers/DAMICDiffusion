@@ -25,13 +25,15 @@ TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot=true);
 	
 TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, bool plot=true);
 	
-void  pixel2pos(double* pixel, int n);
+void pixel2pos(double* pixel, int n);
 
 void pos2pixel(double* pixel, int n);
 
 TF1 * fitMuonLine(double *x, double *y, int n);
 
-void  getZ(double *x, double *y, double *z, int n);
+void getXYE(TTree *tree, int i, double *xx, double *yy, double *qq, int &n);
+
+void getZ(double *x, double *y, double *z, int n);
 
 struct position{
 	double x;
