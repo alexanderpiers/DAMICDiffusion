@@ -3,6 +3,10 @@ images/
 presentations/
 muonanalysis/rootfile/
 muonanalysis/build/
+rootfile/
+
+# Slurm output files
+*slurm*.out
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
