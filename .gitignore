@@ -5,8 +5,8 @@ muonanalysis/rootfile/
 muonanalysis/build/
 rootfile/
 
-# Slurm output files
-*slurm*.out
+# output files
+*.out
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
