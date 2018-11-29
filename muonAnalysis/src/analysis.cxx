@@ -78,7 +78,7 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin, double zmax, bool resolveDel
 TH1D* histDistance(TTree *tree, double zmin, double zmax, bool energyFilt, double emin, double emax, bool deltaRayRejection, bool draw){
 
 	// Define parameters
-	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 25, 0, 5);
+	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 50, 0, 5);
 	TStyle *gStyle = new TStyle();
 	TArrayD *x = new TArrayD(); TArrayD *y = new TArrayD(); TArrayD *q = new TArrayD();
 	double *xx, *yy, *qq;
@@ -137,7 +137,7 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool energyFilt, doubl
 	// Gaussian fit over the low diffusion regime
 	TF1* f = new TF1("f1", "gaus", 0, 4);
 	f->SetParameter(1,0);
-	h1->Fit("f1", "QR0", 0, 1.5);
+	h1->Fit("f1", "QRI0", 0, 1.5);
 	if(draw){
 		gStyle->SetOptFit();
 		h1->Draw("HIST");
