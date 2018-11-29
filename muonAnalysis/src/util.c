@@ -1,6 +1,6 @@
 
 {
-	gInterpreter->AddIncludePath("~/DAMICDIffusion/muonAnalysis/include/");
+	gInterpreter->AddIncludePath("~/DAMICDiffusion/muonAnalysis/include/");
 	gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/muonFilter.cxx");
 	gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/analysis.cxx");
 
