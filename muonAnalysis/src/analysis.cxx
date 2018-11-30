@@ -304,7 +304,7 @@ TH1D* dedxFluctuation(TTree *tree, int i){
 
 TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 
-	TTree *dedxTree = new TTree("dedxFilterTree");
+	TTree *dedxTree = new TTree("dedxFilterTree","filter by dedx");
 
 	// Define parameters to be used for the branches of the new tree
 	vector<double> x;
@@ -387,11 +387,11 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 		for(int j=0; j<nold; j++){
 			
 			// Compare each pixel to the acceptable ranges
-			for(int k=0; k<goodDepth->size(); k++){
-				if(zzold < (goodDepth[k] + delta) && zzold[j] > (goodDepth[k] - delta)){
+			for(int k=0; k<goodDepth.size(); k++){
+				if(zzold[j] < (goodDepth[k] + delta) && zzold[j] > (goodDepth[k] - delta)){
 					x.push_back(xxold[j]);
 					y.push_back(yyold[j]);
-					z.push_back(zzold[j])
+					z.push_back(zzold[j]);
 					q.push_back((*qold)[j]);
 					dedx.push_back(sliceDedx[k]);
 					break;
@@ -401,8 +401,8 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 		}
 
 		// Set remaining branch parameters
-		TrackID = i;
-		ip = getInitiaPosition(xxold, yyold, nold);
+		trackID = i;
+		ip = getInitialPosition(xxold, yyold, nold);
 		tf = fitMuonLine(xxold, yyold, nold);
 		slope = tf->GetParameter(1);
 
@@ -415,9 +415,9 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 		z.clear();
 		q.clear();
 		dedx.clear();
-		goodDepth.clear(); goodIndex.clear();
+		goodDepth.clear(); sliceDedx.clear();
 	}
-	return hSpectrum;
+	return energyfluc;
 }
 
 void saveAllHist(TTree *tree){
