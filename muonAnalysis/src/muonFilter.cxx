@@ -279,14 +279,14 @@ void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, 
 		
 		// if in the depth range, add to histogram
 		if(z[j] > zmin && z[j] < zmax && abs(projection) < 4){
-			proj[zcount] = abs(projection);
+			proj[zcount] = projection;
 			qEnergy[zcount] = q[j];
 			dedx += q[j];
 			zcount++;
 		}else if(z[j] > zmin && z[j] < zmax && abs(projection) >= 4){
 			deltaray = true;
 			if(!resolveDeltaRay){
-				proj[zcount] = abs(projection);
+				proj[zcount] = projection;
 				qEnergy[zcount] = q[j];
 				dedx += q[j];
 				zcount++;

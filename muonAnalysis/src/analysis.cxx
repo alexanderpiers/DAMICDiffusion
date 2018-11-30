@@ -14,7 +14,8 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin, double zmax, bool resolveDel
 	TF1 *tf;
 	position ip;
 	double dedx = 0;
-	double vx, vy, sx, sy, inter, slope, projection, xmin, xmax, length, dedxMax=1., projMax=1., projArrayMax;
+	int projMax=1, projMin=-1, dedxMax=1;
+	double vx, vy, sx, sy, inter, slope, projection, xmin, xmax, length, projArrayMax, projArrayMin;
 	// Set the appropriate branch address
 	tree->SetBranchAddress("pixel_x", &x);
 	tree->SetBranchAddress("pixel_y", &y);
@@ -42,14 +43,18 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin, double zmax, bool resolveDel
 		
 		// Set axis of the histogram
 		projArrayMax = getArrayMax(projArray, zcount);
+		projArrayMin = getArrayMin(projArray, zcount);
 		if(projArrayMax > projMax){
 			projMax = int(projArrayMax);
-			h2->SetBins(2*projMax, 0, projMax, dedxMax, 0, dedxMax);
+			h2->SetBins(2*(projMax-projMin), -projMin, projMax, dedxMax, 0, dedxMax);
 		}
-
+		if(projArrayMin < projMin){
+			projMin = int(projArrayMin);
+			h2->SetBins(2*(projMax-projMin), -projMin, projMax, dedxMax, 0, dedxMax);
+		}
 		if(dedx > dedxMax){
 			dedxMax = int(dedx);
-			h2->SetBins(2*projMax, 0, projMax, dedxMax, 0, dedxMax);
+			h2->SetBins(2*(projMax-projMin), -projMin, projMax, dedxMax, 0, dedxMax);
 		}
 		
 		// Create an array to hold the dedx values for the histogram
@@ -78,7 +83,7 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin, double zmax, bool resolveDel
 TH1D* histDistance(TTree *tree, double zmin, double zmax, bool energyFilt, double emin, double emax, bool deltaRayRejection, bool draw){
 
 	// Define parameters
-	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 50, 0, 5);
+	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 80, -4, 4);
 	TStyle *gStyle = new TStyle();
 	TArrayD *x = new TArrayD(); TArrayD *y = new TArrayD(); TArrayD *q = new TArrayD();
 	double *xx, *yy, *qq;
@@ -135,9 +140,9 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool energyFilt, doubl
 	h1->GetYaxis()->SetTitle("Amount of charge (keV)");
 	h1->SetLineWidth(3);
 	// Gaussian fit over the low diffusion regime
-	TF1* f = new TF1("f1", "gaus", 0, 4);
+	TF1* f = new TF1("f1", "gaus", -1.5, 1.5);
 	f->SetParameter(1,0);
-	h1->Fit("f1", "QRI0", 0, 1.5);
+	h1->Fit("f1", "QI0");
 	if(draw){
 		gStyle->SetOptFit();
 		h1->Draw("HIST");
