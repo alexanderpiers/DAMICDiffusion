@@ -174,6 +174,15 @@ void  getZ(double *x, double *y, double *z, int n){
 	return;
 
 }
+position::position(){
+	this->x = 0.;
+	this->y = 0.;
+}
+
+position::position(double x, double y){
+	this->x = x;
+	this->y = y;
+}
 
 position getInitialPosition(double *x, double *y, int n){
 

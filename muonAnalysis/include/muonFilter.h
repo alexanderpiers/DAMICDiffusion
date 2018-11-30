@@ -38,6 +38,9 @@ void getZ(double *x, double *y, double *z, int n);
 struct position{
 	double x;
 	double y;
+
+	position();
+	position(double x, double y);
 };
 
 position getInitialPosition(double *x, double *y, int n);
