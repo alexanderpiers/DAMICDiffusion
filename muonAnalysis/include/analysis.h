@@ -2,6 +2,7 @@
 #include "TStyle.h"
 #include "TObject.h"
 #include "TGraphErrors.h"
+#include <vector>
 
 void convertVal2Energy(double *q, int n,  double conversionFactor=10300/6.4);
 
@@ -14,6 +15,8 @@ TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend,  dou
 TGraph* plotSigmaVDepth();
 
 TH1D* dedxFluctuation(TTree *tree, int i);
+
+TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh);
 
 void saveAllHist(TTree *tree);
 

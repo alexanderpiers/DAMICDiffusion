@@ -302,6 +302,124 @@ TH1D* dedxFluctuation(TTree *tree, int i){
 	return h; 
 }
 
+TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
+
+	TTree *dedxTree = new TTree("dedxFilterTree");
+
+	// Define parameters to be used for the branches of the new tree
+	vector<double> x;
+	vector<double> y;
+	vector<double> z;
+	vector<double> q;
+	vector<double> dedx;
+	int trackID;
+	double slope;
+	position ip;
+	int trackLength;
+
+	// Add branches to the new tree
+	dedxTree->Branch("trackID", &trackID);
+	dedxTree->Branch("x", &x);
+	dedxTree->Branch("y", &y);
+	dedxTree->Branch("z", &z);
+	dedxTree->Branch("q", &q);
+	dedxTree->Branch("dedx", &dedx);
+	dedxTree->Branch("orientation", &slope);
+	dedxTree->Branch("initialPosition", &ip);
+	dedxTree->Branch("trackLength", &trackLength);
+	
+	// Set Parameters for the current tree
+	TArrayD *xold = new TArrayD(); TArrayD *yold = new TArrayD(); TArrayD *qold = new TArrayD();
+	double *xxold, *yyold, *zzold;
+	int nold;
+	// Set branch addresses
+	tree->SetBranchAddress("pixel_x", &xold);
+	tree->SetBranchAddress("pixel_y", &yold);
+	tree->SetBranchAddress("pixel_val", &qold);
+	
+	int nTracks = tree->GetEntries();
+	
+	// Creating other variables needed for storing "good" events
+	TH1D *energyfluc;
+	TF1 *tf;
+	int nGoodSlices;
+	double delta;
+	vector<double> goodDepth;
+	vector<double> sliceDedx;
+	// Iterate over all entries, adding values to the new trees
+	for(int i=0; i<1; i++){
+
+		tree->GetEntry(i);
+
+		// Get a histogram of the energy fluctuation
+		energyfluc = dedxFluctuation(tree, i);
+		trackLength = energyfluc->GetNbinsX();
+
+		// Iterate over the histogram and find list of good depths
+		// Definition of good is current value and ajacent values are less than threshold
+		for(int j=0; j<trackLength; j++){
+			if(j == 0){
+				if(energyfluc->GetBinContent(j) < dedxThresh && energyfluc->GetBinContent(j+1) < dedxThresh){
+				goodDepth.push_back((j+0.5)*CCDWidth/trackLength);
+				sliceDedx.push_back(energyfluc->GetBinContent(j));
+				}
+			}else if(j == (trackLength -1)){
+				if(energyfluc->GetBinContent(j) < dedxThresh && energyfluc->GetBinContent(j-1) < dedxThresh){
+				goodDepth.push_back((j+0.5)*CCDWidth/trackLength);
+				sliceDedx.push_back(energyfluc->GetBinContent(j));
+				}
+			}else{
+				if(energyfluc->GetBinContent(j) < dedxThresh && energyfluc->GetBinContent(j+1) < dedxThresh &&energyfluc->GetBinContent(j-1) < dedxThresh){
+				goodDepth.push_back((j+0.5)*CCDWidth/trackLength);
+				sliceDedx.push_back(energyfluc->GetBinContent(j));
+				}
+			}
+		}
+		// Calculate the +/- range in depth. Delta D/2
+		delta = 0.5*CCDWidth/trackLength;
+		// Compare the depths of the actual pixels to the acceptable ones
+		// Put good depths in the new tree
+		nold = xold->GetSize();
+		xxold = xold->GetArray();
+		yyold = yold->GetArray();
+		getZ(xxold, yyold, zzold, nold);
+
+		for(int j=0; j<nold; j++){
+			
+			// Compare each pixel to the acceptable ranges
+			for(int k=0; k<goodDepth->size(); k++){
+				if(zzold < (goodDepth[k] + delta) && zzold[j] > (goodDepth[k] - delta)){
+					x.push_back(xxold[j]);
+					y.push_back(yyold[j]);
+					z.push_back(zzold[j])
+					q.push_back((*qold)[j]);
+					dedx.push_back(sliceDedx[k]);
+					break;
+				}
+
+			}
+		}
+
+		// Set remaining branch parameters
+		TrackID = i;
+		ip = getInitiaPosition(xxold, yyold, nold);
+		tf = fitMuonLine(xxold, yyold, nold);
+		slope = tf->GetParameter(1);
+
+		// Fill the tree 
+		dedxTree->Fill();
+
+		// Clear all the necessary vectors
+		x.clear();
+		y.clear();
+		z.clear();
+		q.clear();
+		dedx.clear();
+		goodDepth.clear(); goodIndex.clear();
+	}
+	return hSpectrum;
+}
+
 void saveAllHist(TTree *tree){
 	int n = tree->GetEntries();
 	TArrayD *x, *y, *q;
