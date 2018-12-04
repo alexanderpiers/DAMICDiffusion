@@ -86,10 +86,27 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 80, -4, 4);
 	TStyle *gStyle = new TStyle();
 
-	// Defining variables
-	
 	TArrayD *x = new TArrayD(); TArrayD *y = new TArrayD(); TArrayD *q = new TArrayD();
 	double *xx, *yy, *qq;
+	vector<double> *xVec = 0;
+	vector<double> *yVec = 0;
+	vector<double> *qVec = 0;
+	vector<double> *dedxVec = 0;
+	
+	if(dedxFilt){
+
+		// Set the branch addresses
+		tree->SetBranchAddress("x", &xVec);
+		tree->SetBranchAddress("y", &yVec);
+		tree->SetBranchAddress("q", &qVec);
+		tree->SetBranchAddress("dedx", &dedxVec);
+	}else{
+
+		// Set the appropriate branch address
+		tree->SetBranchAddress("pixel_x", &x);
+		tree->SetBranchAddress("pixel_y", &y);
+		tree->SetBranchAddress("pixel_val", &q);
+	}	
 	double conversionFactor = 10300/6.4;
 	int n, zcount;
 	TF1 *tf;
@@ -98,34 +115,38 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 	double vx, vy, sx, sy, inter, slope, projection, xmin, xmax, length, dedx;
 	double projArray[100000];
 	double qEnergyArray[100000];
-	// Set the appropriate branch address
-	tree->SetBranchAddress("pixel_x", &x);
-	tree->SetBranchAddress("pixel_y", &y);
-	tree->SetBranchAddress("pixel_val", &q);
 	int nTracks = tree->GetEntries();
 	// Iterate over all track entries
 	for(int i=0; i<nTracks; i++){
-	
-		tree->GetEntry(i);
-		xx = x->GetArray(); yy = y->GetArray(); qq = q->GetArray();
-		n = x->GetSize();
-
-		// Conver q to energy via conversion factor
-		for(int k=0; k<n; k++){
-			qq[k] /= conversionFactor;
-		}	
-			
+		cout << i << endl;	
 		zcount = 0;
 		dedx = 0;
-		
-		// Finds the distance of each point in the track. Returns projArry and qEnergyArray with the correct depth filter		
-		getDistanceFromTrack(xx, yy, qq, n, zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
-		// Fill the histogram
-		if(energyFilt){
-			if(dedx > emin && dedx < emax) h1->FillN(zcount, projArray, qEnergyArray);
-		} else{
-			h1->FillN(zcount, projArray, qEnergyArray);
+		tree->GetEntry(i);
+		if(dedxFilt){
+			if(!xVec->empty()){
+				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
+				h1->FillN(zcount, projArray, &(qVec->at(0)));
+			}
+		}else{
+			xx = x->GetArray(); yy = y->GetArray(); qq = q->GetArray();
+			n = x->GetSize();
+
+			// Conver q to energy via conversion factor. dedx tree already converted to energy
+			for(int k=0; k<n; k++){
+				qq[k] /= conversionFactor;
+			}	
+			
+			// Finds the distance of each point in the track. Returns projArry and qEnergyArray with the correct depth filter		
+			getDistanceFromTrack(xx, yy, qq, n, zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
+			
+			// Fill the histogram
+			if(energyFilt){
+				if(dedx > emin && dedx < emax) h1->FillN(zcount, projArray, qEnergyArray);
+			} else{
+				h1->FillN(zcount, projArray, qEnergyArray);
+			}
 		}
+
 
 	}
 

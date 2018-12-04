@@ -270,13 +270,11 @@ void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, 
 	// Calculate the length of the line segment
 	double xmin = getArrayMin(x, n); double xmax = getArrayMax(x, n);
 	double length = sqrt(pow(xmax-xmin,2) + pow(tf->Eval(xmax)-tf->Eval(xmin),2))*(zmax-zmin)/CCDWidth;
-	// Iterate over all x,y pairs in the
-
+	// Iterate over all x,y pairs in the cluster
 	for(int j=0; j<n; j++){
 		sx = x[j] - ip.x + 0.5;
 		sy = y[j] - ip.y + 0.5;
 		projection = vx*sx + vy*sy;
-		
 		// if in the depth range, add to histogram
 		if(z[j] > zmin && z[j] < zmax && abs(projection) < 4){
 			proj[zcount] = projection;
@@ -297,8 +295,7 @@ void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, 
 	delete z;	
 	// Find the energy per  unit length
 	dedx /= length;
-
-	// If delta ray detected set the zcount to 0. Then when we fill the histogram
+	// If delta ray detected set the zcount to 0. Then when we fill the histogram those segments are ignored
 	if(deltaray && resolveDeltaRay) zcount=0;
 
 	return;

@@ -7,8 +7,8 @@ using namespace std;
 int main(int argc, char **argv){
 
 	// Get tree of muon data
-	TFile* f = new TFile("~/large_muon_set.root");
-	TTree* t = (TTree*)f->Get("clusters_tree");
+	TFile * f = new TFile("~/DAMICDiffusion/rootfile/dedxfilter_10kev.root");
+	TTree * t = (TTree*)f->Get("dedxFilterTree");
 	cout << "Number of tree entries: " << t->GetEntries() <<  endl;
 /*	
 	// Create TApplication object and run analysis
@@ -37,23 +37,24 @@ int main(int argc, char **argv){
 		delete h1;
 	}*/
 
-	// Plot low depth distribution of charge. 
-	/*int estart=2, eend=9;
-	const char *outfile = "~/DAMICDiffusion/rootfile/low_depth_distI.root";
+	// Plot low distribution of charge for filtered tree. 
+	int estart=3, eend=8;
+  	double zstart=0, zincrement=10, zend=500;
+	const char *outfile = "~/DAMICDiffusion/rootfile/charge_dist_dedx_filter.root";
 	for(int i=estart; i<eend; i++){
-		TH1D *h1 = new TH1D();
-		h1 = histDistance(t, 0, 5, true, i, i+1, true, false);
-		char *histname = new char[100];
-		sprintf(histname, "depth_0_5um_%i_%ikev", i, i+1);
-		savehist(h1, outfile, histname);
-		delete histname; delete h1;
-
-	}*/
-
+			for(int j=zstart; j<zend; j+=zincrement){
+			TH1D *h1 = new TH1D();
+			h1 = histDistance(t, j*zincrement, (j+1)*zincrement,true, true, i, i+1, true, false);
+			char *histname = new char[100];
+			sprintf(histname, "depth_%.1f_%.1fum_%i_%ikev", j*zincrement, (j+1)*zincrement, i, i+1);
+			savehist(h1, outfile, histname);
+			delete histname; delete h1;
+		}
+	}
 	// Filter out higher energy segments of track and save to file
-	const char* outfilename = "~/DAMICDiffusion/rootfile/dedxfilter_8kev.root";
-	double energyThreshold = 8;
-	dedxFilterTree(t, outfilename, energyThreshold);
+	//const char* outfilename = "~/DAMICDiffusion/rootfile/dedxfilter_8kev.root";
+	//double energyThreshold = 8;
+	//dedxFilterTree(t, outfilename, energyThreshold);
 	
 	cout << "Analysis successfully run." << endl;
 
