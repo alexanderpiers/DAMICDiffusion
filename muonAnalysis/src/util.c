@@ -3,14 +3,14 @@
 	gInterpreter->AddIncludePath("~/DAMICDiffusion/muonAnalysis/include/");
 	gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/muonFilter.cxx");
 	gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/analysis.cxx");
-
+	
 	TFile* f = new TFile("~/muontracks2.root");
 	TTree* t = f->Get("clusters_tree");
 
-	//TArrayD *x, *y, *q;
-	//t->SetBranchAddress("pixel_x", &x);
-	//t->SetBranchAddress("pixel_y", &y);
-	//t->SetBranchAddress("pixel_val", &q);
+	TArrayD *xTA, *yTA, *qTA;
+	t->SetBranchAddress("pixel_x", &xTA);
+	t->SetBranchAddress("pixel_y", &yTA);
+	t->SetBranchAddress("pixel_val", &qTA);
 	
 	// Finding lines with good slopes
 //	TF1* tf;

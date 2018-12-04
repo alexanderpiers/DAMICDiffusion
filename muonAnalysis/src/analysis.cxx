@@ -307,8 +307,9 @@ TH1D* dedxFluctuation(TTree *tree, int i){
 	return h; 
 }
 
-TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
+TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int idx){
 
+	TFile *outfileRT = new TFile(outfile, "RECREATE");
 	TTree *dedxTree = new TTree("dedxFilterTree","filter by dedx");
 
 	// Define parameters to be used for the branches of the new tree
@@ -317,10 +318,10 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 	vector<double> z;
 	vector<double> q;
 	vector<double> dedx;
-	int trackID;
-	double slope;
-	position ip;
-	int trackLength;
+	int trackID, trackLength;
+	double xi, yi, slope, slopeNew, xiNew, yiNew;
+	position ip, ipNew;
+
 
 	// Add branches to the new tree
 	dedxTree->Branch("trackID", &trackID);
@@ -329,40 +330,42 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 	dedxTree->Branch("z", &z);
 	dedxTree->Branch("q", &q);
 	dedxTree->Branch("dedx", &dedx);
-	dedxTree->Branch("orientation", &slope);
-	dedxTree->Branch("initialPosition", &ip);
+	dedxTree->Branch("xi", &xi);
+	dedxTree->Branch("yi", &yi);
+	dedxTree->Branch("slope", &slope);
 	dedxTree->Branch("trackLength", &trackLength);
+	dedxTree->Branch("slopeNew", &slopeNew);
+	dedxTree->Branch("xiNew", &xiNew);
+	dedxTree->Branch("yiNew", &yiNew);
 	
 	// Set Parameters for the current tree
 	TArrayD *xold = new TArrayD(); TArrayD *yold = new TArrayD(); TArrayD *qold = new TArrayD();
-	double *xxold, *yyold, *zzold;
+	double *xxold, *yyold;
 	int nold;
 	// Set branch addresses
 	tree->SetBranchAddress("pixel_x", &xold);
 	tree->SetBranchAddress("pixel_y", &yold);
 	tree->SetBranchAddress("pixel_val", &qold);
-	
 	int nTracks = tree->GetEntries();
 	
 	// Creating other variables needed for storing "good" events
 	TH1D *energyfluc;
-	TF1 *tf;
+	TF1 *tf, *tfNew;
 	int nGoodSlices;
 	double delta;
 	vector<double> goodDepth;
 	vector<double> sliceDedx;
 	// Iterate over all entries, adding values to the new trees
-	for(int i=0; i<1; i++){
-
+	for(int i=idx; i<idx+1; i++){
 		tree->GetEntry(i);
 
 		// Get a histogram of the energy fluctuation
 		energyfluc = dedxFluctuation(tree, i);
 		trackLength = energyfluc->GetNbinsX();
-
 		// Iterate over the histogram and find list of good depths
 		// Definition of good is current value and ajacent values are less than threshold
 		for(int j=0; j<trackLength; j++){
+		
 			if(j == 0){
 				if(energyfluc->GetBinContent(j) < dedxThresh && energyfluc->GetBinContent(j+1) < dedxThresh){
 				goodDepth.push_back((j+0.5)*CCDWidth/trackLength);
@@ -387,8 +390,8 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 		nold = xold->GetSize();
 		xxold = xold->GetArray();
 		yyold = yold->GetArray();
+		double *zzold = new double[nold];
 		getZ(xxold, yyold, zzold, nold);
-
 		for(int j=0; j<nold; j++){
 			
 			// Compare each pixel to the acceptable ranges
@@ -406,15 +409,24 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 		}
 
 		// Set remaining branch parameters
+		// Simple parameters
 		trackID = i;
 		ip = getInitialPosition(xxold, yyold, nold);
+		xi = ip.x; yi = ip.y;
 		tf = fitMuonLine(xxold, yyold, nold);
 		slope = tf->GetParameter(1);
+
+		// Find the new best fit line with the remaining 
+		tfNew = fitMuonLine(&x[0], &y[0], x.size());
+		slopeNew = tf->GetParameter(1);
+		ipNew = getInitialPosition(&x[0], &y[0], x.size());
+		xiNew = ipNew.x; yiNew = ipNew.y;
 
 		// Fill the tree 
 		dedxTree->Fill();
 
 		// Clear all the necessary vectors
+		delete zzold;
 		x.clear();
 		y.clear();
 		z.clear();
@@ -422,7 +434,46 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh){
 		dedx.clear();
 		goodDepth.clear(); sliceDedx.clear();
 	}
+	dedxTree->Write();
+	outfileRT->Close();
 	return energyfluc;
+}
+
+void testdedxFilter(TTree *tree, int i=0){
+
+	gStyle->SetPalette(55);
+	TCanvas *c = new TCanvas("c","c", 700, 500);
+	c->Divide(1,3);
+	gStyle->SetOptStat(0);
+	c->cd(1);
+	TArrayD *x; TArrayD *y; TArrayD *q;
+	tree->SetBranchAddress("pixel_x", &x);
+	tree->SetBranchAddress("pixel_y", &y);
+	tree->SetBranchAddress("pixel_val", &q);
+
+	tree->GetEntry(i);
+	TH2D *rawTrack = plot2DTrack(x, y, q, false);
+	rawTrack->Draw("colz");
+
+	c->cd(2);
+	TH1D *fluc = dedxFluctuation(tree, i);
+	fluc->Draw("hist");
+
+	c->cd(3);
+	const char *filename = "./test.root";
+	dedxFilterTree(tree, filename, 8, i);
+	TFile *fdedx = new TFile(filename);
+	TTree *tdedx = (TTree*)fdedx->Get("dedxFilterTree");
+	tdedx->Draw("y:x","q","colz");
+	TH1D *filtTrack = (TH1D*)gROOT->FindObject("htemp");
+	double xmin=rawTrack->GetXaxis()->GetXmin();
+	double xmax=rawTrack->GetXaxis()->GetXmax();
+	double ymin=rawTrack->GetYaxis()->GetXmin();
+	double ymax=rawTrack->GetYaxis()->GetXmax();
+	filtTrack->SetBins(rawTrack->GetNbinsX(), xmin, xmax, rawTrack->GetNbinsY(), ymin, ymax);
+	filtTrack->Draw("colz");
+
+	return;
 }
 
 void saveAllHist(TTree *tree){
