@@ -38,7 +38,7 @@ int main(int argc, char **argv){
 	}*/
 
 	// Plot low depth distribution of charge. 
-	int estart=2, eend=9;
+	/*int estart=2, eend=9;
 	const char *outfile = "~/DAMICDiffusion/rootfile/low_depth_distI.root";
 	for(int i=estart; i<eend; i++){
 		TH1D *h1 = new TH1D();
@@ -48,7 +48,12 @@ int main(int argc, char **argv){
 		savehist(h1, outfile, histname);
 		delete histname; delete h1;
 
-	}
+	}*/
+
+	// Filter out higher energy segments of track and save to file
+	const char* outfilename = "~/DAMICDiffusion/rootfile/dedxfilter_8kev.root";
+	double energyThreshold = 8;
+	dedxFilterTree(t, outfilename, energyThreshold);
 	
 	cout << "Analysis successfully run." << endl;
 

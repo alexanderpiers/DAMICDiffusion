@@ -80,11 +80,14 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin, double zmax, bool resolveDel
 
 }
 
-TH1D* histDistance(TTree *tree, double zmin, double zmax, bool energyFilt, double emin, double emax, bool deltaRayRejection, bool draw){
+TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool energyFilt, double emin, double emax, bool deltaRayRejection, bool draw){
 
 	// Define parameters
 	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 80, -4, 4);
 	TStyle *gStyle = new TStyle();
+
+	// Defining variables
+	
 	TArrayD *x = new TArrayD(); TArrayD *y = new TArrayD(); TArrayD *q = new TArrayD();
 	double *xx, *yy, *qq;
 	double conversionFactor = 10300/6.4;
@@ -271,7 +274,6 @@ TH1D* dedxFluctuation(TTree *tree, int i){
 	
 	// Get array of x, y pixels
 	getXYE(tree, i, x, y, energy, n);
-	cout << x << "," << y << "," << energy <<  endl;	
 	
 	// Get slope of line and find track length
 	TF1 *tf = fitMuonLine(x, y, n);
@@ -307,7 +309,7 @@ TH1D* dedxFluctuation(TTree *tree, int i){
 	return h; 
 }
 
-TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int idx){
+void dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int startIdx){
 
 	TFile *outfileRT = new TFile(outfile, "RECREATE");
 	TTree *dedxTree = new TTree("dedxFilterTree","filter by dedx");
@@ -338,28 +340,25 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int id
 	dedxTree->Branch("xiNew", &xiNew);
 	dedxTree->Branch("yiNew", &yiNew);
 	
-	// Set Parameters for the current tree
-	TArrayD *xold = new TArrayD(); TArrayD *yold = new TArrayD(); TArrayD *qold = new TArrayD();
-	double *xxold, *yyold;
-	int nold;
-	// Set branch addresses
-	tree->SetBranchAddress("pixel_x", &xold);
-	tree->SetBranchAddress("pixel_y", &yold);
-	tree->SetBranchAddress("pixel_val", &qold);
+	// Set Parameters for the current treei
+	double *xxold = new double[20000];
+	double *yyold = new double[20000];
+	double *qqold = new double[20000];
+	int nold = 0;
 	int nTracks = tree->GetEntries();
 	
 	// Creating other variables needed for storing "good" events
-	TH1D *energyfluc;
 	TF1 *tf, *tfNew;
 	int nGoodSlices;
 	double delta;
 	vector<double> goodDepth;
 	vector<double> sliceDedx;
-	// Iterate over all entries, adding values to the new trees
-	for(int i=idx; i<idx+1; i++){
-		tree->GetEntry(i);
 
+	// Iterate over all entries, adding values to the new trees
+	for(int i=startIdx; i<nTracks; i++){
+		getXYE(tree, i, xxold, yyold, qqold, nold);
 		// Get a histogram of the energy fluctuation
+		TH1D * energyfluc = new TH1D();
 		energyfluc = dedxFluctuation(tree, i);
 		trackLength = energyfluc->GetNbinsX();
 		// Iterate over the histogram and find list of good depths
@@ -387,9 +386,7 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int id
 		delta = 0.5*CCDWidth/trackLength;
 		// Compare the depths of the actual pixels to the acceptable ones
 		// Put good depths in the new tree
-		nold = xold->GetSize();
-		xxold = xold->GetArray();
-		yyold = yold->GetArray();
+	
 		double *zzold = new double[nold];
 		getZ(xxold, yyold, zzold, nold);
 		for(int j=0; j<nold; j++){
@@ -400,7 +397,7 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int id
 					x.push_back(xxold[j]);
 					y.push_back(yyold[j]);
 					z.push_back(zzold[j]);
-					q.push_back((*qold)[j]);
+					q.push_back(qqold[j]);
 					dedx.push_back(sliceDedx[k]);
 					break;
 				}
@@ -418,7 +415,7 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int id
 
 		// Find the new best fit line with the remaining 
 		tfNew = fitMuonLine(&x[0], &y[0], x.size());
-		slopeNew = tf->GetParameter(1);
+		slopeNew = tfNew->GetParameter(1);
 		ipNew = getInitialPosition(&x[0], &y[0], x.size());
 		xiNew = ipNew.x; yiNew = ipNew.y;
 
@@ -427,6 +424,7 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int id
 
 		// Clear all the necessary vectors
 		delete zzold;
+		delete energyfluc;
 		x.clear();
 		y.clear();
 		z.clear();
@@ -436,7 +434,7 @@ TH1D* dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int id
 	}
 	dedxTree->Write();
 	outfileRT->Close();
-	return energyfluc;
+	return;
 }
 
 void testdedxFilter(TTree *tree, int i=0){
