@@ -39,14 +39,16 @@ int main(int argc, char **argv){
 
 	// Plot low distribution of charge for filtered tree. 
 	int estart=3, eend=8;
-  	double zstart=0, zincrement=10, zend=500;
-	const char *outfile = "~/DAMICDiffusion/rootfile/charge_dist_dedx_filter.root";
+  	int zstart=0, zincrement=10, zend=500;
+	const char *outfile = "~/DAMICDiffusion/rootfile/charge_dist_dedx_filter_TEST.root";
 	for(int i=estart; i<eend; i++){
-			for(int j=zstart; j<zend; j+=zincrement){
+		cout << i << endl;
+		for(int j=zstart; j<zend; j+=zincrement){
 			TH1D *h1 = new TH1D();
-			h1 = histDistance(t, j*zincrement, (j+1)*zincrement,true, true, i, i+1, true, false);
+			h1 = histDistance(t, j, j+zincrement,true, true, i, i+1, true, false);
 			char *histname = new char[100];
-			sprintf(histname, "depth_%.1f_%.1fum_%i_%ikev", j*zincrement, (j+1)*zincrement, i, i+1);
+			sprintf(histname, "depth_%i_%ium_%i_%ikev", j, (j+zincrement), i, (i+1));
+			cout << histname << endl;
 			savehist(h1, outfile, histname);
 			delete histname; delete h1;
 		}

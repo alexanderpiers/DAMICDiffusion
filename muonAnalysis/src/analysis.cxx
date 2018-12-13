@@ -118,7 +118,6 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 	int nTracks = tree->GetEntries();
 	// Iterate over all track entries
 	for(int i=0; i<nTracks; i++){
-		cout << i << endl;	
 		zcount = 0;
 		dedx = 0;
 		tree->GetEntry(i);
@@ -127,6 +126,7 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
 				h1->FillN(zcount, projArray, &(qVec->at(0)));
 			}
+			xVec->clear(); yVec->clear(); qVec->clear();
 		}else{
 			xx = x->GetArray(); yy = y->GetArray(); qq = q->GetArray();
 			n = x->GetSize();
