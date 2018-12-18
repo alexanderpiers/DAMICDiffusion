@@ -9,6 +9,8 @@ int main(int argc, char **argv){
 	// Get tree of muon data
 	TFile * f = new TFile("~/DAMICDiffusion/rootfile/dedxfilter_10kev.root");
 	TTree * t = (TTree*)f->Get("dedxFilterTree");
+	//TFile * f = new TFile("~/large_muon_set.root");
+	//TTree * t = (TTree*)f->Get("clusters_tree");
 	cout << "Number of tree entries: " << t->GetEntries() <<  endl;
 /*	
 	// Create TApplication object and run analysis
@@ -38,9 +40,9 @@ int main(int argc, char **argv){
 	}*/
 
 	// Plot low distribution of charge for filtered tree. 
-	int estart=3, eend=8;
-  	int zstart=0, zincrement=10, zend=500;
-	const char *outfile = "~/DAMICDiffusion/rootfile/charge_dist_dedx_filter_TEST.root";
+	int estart=3, eend=7;
+  	int zstart=0, zincrement=100, zend=500;
+	const char *outfile = "~/DAMICDiffusion/rootfile/charge_dist_filt_TEST3.root";
 	for(int i=estart; i<eend; i++){
 		cout << i << endl;
 		for(int j=zstart; j<zend; j+=zincrement){
