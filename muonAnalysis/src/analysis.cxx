@@ -124,7 +124,7 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 		if(dedxFilt){
 			if(!xVec->empty()){
 				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
-				h1->FillN(zcount, projArray, &(qVec->at(0)));
+				h1->FillN(zcount, projArray, qEnergyArray);
 			}
 			xVec->clear(); yVec->clear(); qVec->clear();
 		}else{
