@@ -170,7 +170,7 @@ void  getZ(double *x, double *y, double *z, int n){
 		r = vx*sx + vy*sy;
 		z[i] = abs(r)*zslope;
 	}
-
+	delete fit;
 	return;
 
 }
@@ -212,7 +212,7 @@ position getInitialPosition(double *x, double *y, int n){
 		ip.x = x[0];
 		ip.y = y[0];
 	}  
-	
+	delete tf;	
 	return ip;
 }
 
@@ -292,7 +292,7 @@ void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, 
 		}
 
 	}
-	delete z;	
+	delete z; delete tf;	
 	// Find the energy per  unit length
 	dedx /= length;
 	// If delta ray detected set the zcount to 0. Then when we fill the histogram those segments are ignored

@@ -124,7 +124,12 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 		if(dedxFilt){
 			if(!xVec->empty()){
 				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
-				h1->FillN(zcount, projArray, qEnergyArray);
+		
+				if(energyFilt){
+					if(dedx > emin && dedx < emax) h1->FillN(zcount, projArray, qEnergyArray);
+				}else{
+					h1->FillN(zcount, projArray, qEnergyArray);
+				}
 			}
 			xVec->clear(); yVec->clear(); qVec->clear();
 		}else{
@@ -191,7 +196,7 @@ void convertVal2Energy(double *q, int n,  double conversionFactor){
 // double deltaZ - zmax-zmin of each track, so the extent of the z direction of each point
 // double emin - minimum dE/dx
 // double emax - maximum dE/dx
-TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend, double emin, double emax){
+TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend, double emin, double emax, bool dedxFilt, bool deltaFilt){
 	
 	// Define parameters
 	double z[500];
@@ -205,7 +210,7 @@ TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend, doub
 	for(int i=0; i<nSlices; i++){
 		zmin = i*deltaZ + zstart; zmax = (i+1)*deltaZ + zstart;
 		TH1D* h = new TH1D();
-		h = histDistance(tree, zmin, zmax, true, emin, emax, true, false);
+		h = histDistance(tree, zmin, zmax, dedxFilt, true, emin, emax, deltaFilt, false);
 		z[i] = (zmin + zmax)/2;
 		cout << zmin << "-" << zmax << ":" << endl;
 		sigma[i] =  h->GetFunction("f1")->GetParameter(2);
