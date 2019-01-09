@@ -1,7 +1,7 @@
 {
-
-gROOT->ProcessLine(".L ~/recon/Viewer.C+");
-gROOT->ProcessLine(".L ~/recon/ADPmacros/muonFilter.c");
+gInterpreter->AddIncludePath("~/DAMICDiffusion/muonAnalysis/include/");
+gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/muonFilter.cxx");
+gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/analysis.cxx");
 
 TChain* c = new TChain("clusters_tree");
 c->Add("/gscratch/damic/data/uchicago/processed/D3500/SbBe_2015-04-10_FullBe/root/Image1*.root");

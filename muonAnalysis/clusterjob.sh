@@ -9,7 +9,7 @@
 #SBATCH --nodes=1#
 ###SBATCH --ntasks-per-node=12
 #SBATCH --time=2:00:00
-#SBATCH --mem=20G
+#SBATCH --mem=60G
 #SBATCH --workdir=/gscratch/home/apiers/DAMICDiffusion/muonAnalysis
 
 ## Execute script

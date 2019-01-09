@@ -4,7 +4,7 @@
 	gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/muonFilter.cxx");
 	gROOT->ProcessLine(".L ~/DAMICDiffusion/muonAnalysis/src/analysis.cxx");
 	
-	TFile* f = new TFile("~/muontracks2.root");
+	TFile* f = new TFile("~/large_muon_set.root");
 	TTree* t = f->Get("clusters_tree");
 
 	TArrayD *xTA, *yTA, *qTA;
