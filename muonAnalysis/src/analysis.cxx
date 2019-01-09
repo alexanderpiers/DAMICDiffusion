@@ -115,6 +115,7 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 	double vx, vy, sx, sy, inter, slope, projection, xmin, xmax, length, dedx;
 	double projArray[100000];
 	double qEnergyArray[100000];
+	double dedxOut[100000];
 	int nTracks = tree->GetEntries();
 	// Iterate over all track entries
 	for(int i=0; i<nTracks; i++){
@@ -123,10 +124,12 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 		tree->GetEntry(i);
 		if(dedxFilt){
 			if(!xVec->empty()){
-				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
-		
+				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), &(dedxVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedxOut, zcount);
 				if(energyFilt){
-					if(dedx > emin && dedx < emax) h1->FillN(zcount, projArray, qEnergyArray);
+					for (int j=0; j<zcount; j++)
+					{
+						if(dedxOut[j] > emin && dedxOut[j] < emax) h1->Fill(projArray[j], qEnergyArray[j]);
+					}
 				}else{
 					h1->FillN(zcount, projArray, qEnergyArray);
 				}
@@ -338,6 +341,7 @@ TH1D* dedxFluctuation(TTree *tree, int i){
 void dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int startIdx){
 
 	TFile *outfileRT = new TFile(outfile, "RECREATE");
+	outfileRT->cd();
 	TTree *dedxTree = new TTree("dedxFilterTree","filter by dedx");
 
 	// Define parameters to be used for the branches of the new tree
@@ -458,6 +462,7 @@ void dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int sta
 		dedx.clear();
 		goodDepth.clear(); sliceDedx.clear();
 	}
+
 	dedxTree->Write();
 	outfileRT->Close();
 	return;

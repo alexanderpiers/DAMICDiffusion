@@ -4,13 +4,15 @@
 
 using namespace std;
 
+void newMuonRootFile();
+
 int main(int argc, char **argv){
 
 	// Get tree of muon data
-	TFile * f = new TFile("~/DAMICDiffusion/rootfile/dedxfilter_10kev.root");
+	TFile * f = new TFile("~/DAMICDiffusion/rootfiles/dedxfilter_10kev.root");
 	TTree * t = (TTree*)f->Get("dedxFilterTree");
-	//TFile * f = new TFile("~/large_muon_set.root");
-	//TTree * t = (TTree*)f->Get("clusters_tree");
+	// TFile * f = new TFile("~/large_muon_set.root");
+	// TTree * t = (TTree*)f->Get("clusters_tree");
 	cout << "Number of tree entries: " << t->GetEntries() <<  endl;
 /*	
 	// Create TApplication object and run analysis
@@ -41,8 +43,8 @@ int main(int argc, char **argv){
 
 	// Plot low distribution of charge for filtered tree. 
 	int estart=3, eend=7;
-  	int zstart=0, zincrement=100, zend=500;
-	const char *outfile = "~/DAMICDiffusion/rootfile/charge_dist_filt_TEST3.root";
+  	int zstart=0, zincrement=25, zend=500;
+	const char *outfile = "~/DAMICDiffusion/rootfiles/charge_dist_dedxfilt10kev_newEFilter.root";
 	for(int i=estart; i<eend; i++){
 		cout << i << endl;
 		for(int j=zstart; j<zend; j+=zincrement){
@@ -55,10 +57,14 @@ int main(int argc, char **argv){
 			delete histname; delete h1;
 		}
 	}
+	
 	// Filter out higher energy segments of track and save to file
-	//const char* outfilename = "~/DAMICDiffusion/rootfile/dedxfilter_8kev.root";
-	//double energyThreshold = 8;
-	//dedxFilterTree(t, outfilename, energyThreshold);
+	// const char* outfilename = "~/DAMICDiffusion/rootfiles/dedxfilter_6kev.root";
+	// double energyThreshold = 6;
+	// dedxFilterTree(t, outfilename, energyThreshold);
+
+	// Create set of muon tracks from all images
+	// newMuonRootFile();
 	
 	cout << "Analysis successfully run." << endl;
 

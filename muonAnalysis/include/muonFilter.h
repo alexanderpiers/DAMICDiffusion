@@ -51,4 +51,6 @@ double getArrayMin(double* arr, int n);
 
 void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, double zmax,  bool resolveDeltaRay, double *proj, double *qEnergy, double &dedx, int &zcount);
 
+void getDistanceFromTrack(double *x, double *y, double *q, double *dedxIn, int n, double zmin, double zmax, bool resolveDeltaRay, double *proj, double *qEnergy, double *dedxOut, int &zcount);
+
 #endif

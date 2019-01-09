@@ -252,9 +252,11 @@ double getArrayMin(double* arr, int n){
 // 
 // Outputs:
 // double *proj - array of distance from muon track line
-// double *q - array of the amount of charge in each 
+// double *q - array of the amount of charge in each pixel
+// double dedx - pass by reference value of the mean dedx of the line segment
+// int zcount - pass by reference value of the number of pixels that are in the correct zrange
 
-void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, double zmax,  bool resolveDeltaRay, double *proj, double *qEnergy, double &dedx, int &zcount){
+void getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, double zmax,  bool resolveDeltaRay, double *proj, double *qEnergy, double &dedx, int &zcount){
 	
 	bool deltaray = false;
 	double sx, sy, projection;
@@ -276,19 +278,14 @@ void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, 
 		sy = y[j] - ip.y + 0.5;
 		projection = vx*sx + vy*sy;
 		// if in the depth range, add to histogram
-		if(z[j] > zmin && z[j] < zmax && abs(projection) < 4){
+		if(z[j] > zmin && z[j] < zmax){
 			proj[zcount] = projection;
 			qEnergy[zcount] = q[j];
 			dedx += q[j];
 			zcount++;
-		}else if(z[j] > zmin && z[j] < zmax && abs(projection) >= 4){
+		}
+		if(abs(projection) >= 4){
 			deltaray = true;
-			if(!resolveDeltaRay){
-				proj[zcount] = projection;
-				qEnergy[zcount] = q[j];
-				dedx += q[j];
-				zcount++;
-			}
 		}
 
 	}
@@ -299,6 +296,53 @@ void  getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, 
 	if(deltaray && resolveDeltaRay) zcount=0;
 
 	return;
+}
+
+// Overloaded function from above with minor changes. Everything not listed below has the same value/purpose
+// Inputs:
+// double *dedxIn - array of the dedx values associated with each pixel. Comes from the dedx filtering
+// Outputs:
+// double *dedxOut - output array of dedx values associated with each pixel
+void getDistanceFromTrack(double *x, double *y, double *q, double *dedxIn, int n, double zmin, double zmax, bool resolveDeltaRay, double *proj, double *qEnergy, double *dedxOut, int &zcount){
+
+	bool deltaray = false;
+	double sx, sy, projection;
+	// Get information about the line
+	TF1* tf = fitMuonLine(x, y, n);
+	double slope = -1/tf->GetParameter(1);
+	double *z = new double[n];
+	getZ(x, y, z, n);
+	double vx = 1/sqrt(1 + pow(slope,2));
+	double vy = slope/sqrt(1 + pow(slope,2));
+	position ip = getInitialPosition(x, y, n);
+	
+	// Calculate the length of the line segment
+	double xmin = getArrayMin(x, n); double xmax = getArrayMax(x, n);
+	double length = sqrt(pow(xmax-xmin,2) + pow(tf->Eval(xmax)-tf->Eval(xmin),2))*(zmax-zmin)/CCDWidth;
+	// Iterate over all x,y pairs in the cluster
+	for(int j=0; j<n; j++){
+		sx = x[j] - ip.x + 0.5;
+		sy = y[j] - ip.y + 0.5;
+		projection = vx*sx + vy*sy;
+		// if in the depth range, add to histogram
+		if(z[j] > zmin && z[j] < zmax){
+			proj[zcount] = projection;
+			qEnergy[zcount] = q[j];
+			dedxOut[zcount] = dedxIn[j];
+			zcount++;
+		}
+		if(abs(projection) >= 4){
+			deltaray = true;
+		}
+
+	}
+	delete z; delete tf;	
+	
+	// If delta ray detected set the zcount to 0. Then when we fill the histogram those segments are ignored
+	if(deltaray && resolveDeltaRay) zcount=0;
+
+	return;
+
 }
 
 // Wrapper function to extract x, y, and q arrays from a tree entry
