@@ -505,6 +505,110 @@ void testdedxFilter(TTree *tree, int i=0){
 	return;
 }
 
+void resampleMuonTrack(TTree *tree, const char *outfile, const int sampleRatio, bool dedxFilter){
+
+	
+	if(dedxFilter){
+		
+		// Create the output file and new tree
+		TFile *outfileRT = new TFile(outfile, "RECREATE");
+		TTree *fineTree = new TTree("dedxFilterTreeFine","filter by dedx with fine grid");
+	
+		// Create variables to read from the old tree and write to the new tree
+		vector<double> *x;
+		vector<double> *y;
+		vector<double> *z;
+		vector<double> *q;
+		vector<double> *dedx;
+		vector<double> xFine;
+		vector<double> yFine;
+		vector<double> zFine;
+		vector<double> qFine;
+		vector<double> dedxFine;
+		int trackID, trackLength;
+		double xi, yi, slope, slopeNew, xiNew, yiNew;
+		position ip, ipNew;
+
+		// variables needed for resamples
+		double newPixelCharge, pixelX, pixelY, pixelZ;
+
+		// Assign address of old tree branches
+		tree->SetBranchAddress("trackID", &trackID);
+		tree->SetBranchAddress("x", &x);
+		tree->SetBranchAddress("y", &y);
+		tree->SetBranchAddress("z", &z);
+		tree->SetBranchAddress("q", &q);
+		tree->SetBranchAddress("dedx", &dedx);
+		tree->SetBranchAddress("xi", &xi);
+		tree->SetBranchAddress("yi", &yi);
+		tree->SetBranchAddress("slope", &slope);
+		tree->SetBranchAddress("trackLength", &trackLength);
+		tree->SetBranchAddress("slopeNew", &slopeNew);
+		tree->SetBranchAddress("xiNew", &xiNew);
+		tree->SetBranchAddress("yiNew", &yiNew);
+
+		// Assign address of od
+		fineTree->Branch("trackID", &trackID);
+		fineTree->Branch("x", &xFine);
+		fineTree->Branch("y", &yFine);
+		fineTree->Branch("z", &zFine);
+		fineTree->Branch("q", &qFine);
+		fineTree->Branch("dedx", &dedxFine);
+		fineTree->Branch("xi", &xi);
+		fineTree->Branch("yi", &yi);
+		fineTree->Branch("slope", &slope);
+		fineTree->Branch("trackLength", &trackLength);
+		fineTree->Branch("slopeNew", &slopeNew);
+		fineTree->Branch("xiNew", &xiNew);
+		fineTree->Branch("yiNew", &yiNew);
+
+		///int nTracks = tree->GetEntries();
+		int nTracks = 500;
+		// Iterate over the number of tracks and resample the contents
+		for (int i=0; i<nTracks; i++)
+		{
+			tree->GetEntry(i);
+			// iterate over all pixels in the track
+			for (int j=0; j<x->size(); j++)
+			{
+				pixelX = x->at(j);
+				pixelY = y->at(j);
+				newPixelCharge = q->at(j) / (sampleRatio*sampleRatio);
+
+				// Iterate over x and y dimensions and resample
+				for(int xi=0; xi<sampleRatio; xi++){
+					for(int yi=0; yi<sampleRatio; yi++){
+						xFine.push_back(pixelX + (double)xi/sampleRatio);
+						yFine.push_back(pixelY + (double)yi/sampleRatio);
+						zFine.push_back(z->at(j));
+						qFine.push_back(newPixelCharge);
+						dedxFine.push_back(dedx->at(j));
+
+					}
+				}
+			}
+
+			// Fine the resample track into the new tree
+			fineTree->Fill();
+
+			// Clear the vectors
+			xFine.clear();
+			yFine.clear();
+			zFine.clear();
+			qFine.clear();
+			dedxFine.clear();
+		}
+
+		// Write the tree to file
+		fineTree->Write();
+		outfileRT->Close();
+
+	}else{
+		cout << "Currently invalid type of tree passed. Need dEdx filtered tree" << endl;
+	}
+
+	return;
+}
 void saveAllHist(TTree *tree){
 	int n = tree->GetEntries();
 	TArrayD *x, *y, *q;

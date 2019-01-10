@@ -18,6 +18,8 @@ TH1D* dedxFluctuation(TTree *tree, int i);
 
 void dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int startIdx=0);
 
+void resampleMuonTrack(TTree *tree, const char *outfile, const int sampleRatio=5, bool dedxFilter=true);
+
 void saveAllHist(TTree *tree);
 
 void savehist(TH1D *h, const char *filename, char *histname);

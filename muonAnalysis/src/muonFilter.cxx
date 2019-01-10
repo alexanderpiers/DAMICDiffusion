@@ -248,6 +248,7 @@ double getArrayMin(double* arr, int n){
 // int n - number of entries in the x and y arrays
 // double zmin - minimum z threshold
 // double zmax - maximum z threshold
+// double dx - spacing between each grid point of data measured in number of pixels 
 // bool resolveDeltaRay - if true, reject events where delta rays are detected
 // 
 // Outputs:
@@ -256,7 +257,7 @@ double getArrayMin(double* arr, int n){
 // double dedx - pass by reference value of the mean dedx of the line segment
 // int zcount - pass by reference value of the number of pixels that are in the correct zrange
 
-void getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, double zmax,  bool resolveDeltaRay, double *proj, double *qEnergy, double &dedx, int &zcount){
+void getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, double zmax, bool resolveDeltaRay, double *proj, double *qEnergy, double &dedx, int &zcount, double dx){
 	
 	bool deltaray = false;
 	double sx, sy, projection;
@@ -274,8 +275,8 @@ void getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, d
 	double length = sqrt(pow(xmax-xmin,2) + pow(tf->Eval(xmax)-tf->Eval(xmin),2))*(zmax-zmin)/CCDWidth;
 	// Iterate over all x,y pairs in the cluster
 	for(int j=0; j<n; j++){
-		sx = x[j] - ip.x + 0.5;
-		sy = y[j] - ip.y + 0.5;
+		sx = x[j] - ip.x + dx/2;
+		sy = y[j] - ip.y + dx/2;
 		projection = vx*sx + vy*sy;
 		// if in the depth range, add to histogram
 		if(z[j] > zmin && z[j] < zmax){
@@ -303,7 +304,7 @@ void getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, d
 // double *dedxIn - array of the dedx values associated with each pixel. Comes from the dedx filtering
 // Outputs:
 // double *dedxOut - output array of dedx values associated with each pixel
-void getDistanceFromTrack(double *x, double *y, double *q, double *dedxIn, int n, double zmin, double zmax, bool resolveDeltaRay, double *proj, double *qEnergy, double *dedxOut, int &zcount){
+void getDistanceFromTrack(double *x, double *y, double *q, double *dedxIn, int n, double zmin, double zmax, bool resolveDeltaRay, double *proj, double *qEnergy, double *dedxOut, int &zcount, double dx){
 
 	bool deltaray = false;
 	double sx, sy, projection;
@@ -321,8 +322,8 @@ void getDistanceFromTrack(double *x, double *y, double *q, double *dedxIn, int n
 	double length = sqrt(pow(xmax-xmin,2) + pow(tf->Eval(xmax)-tf->Eval(xmin),2))*(zmax-zmin)/CCDWidth;
 	// Iterate over all x,y pairs in the cluster
 	for(int j=0; j<n; j++){
-		sx = x[j] - ip.x + 0.5;
-		sy = y[j] - ip.y + 0.5;
+		sx = x[j] - ip.x + dx/2;
+		sy = y[j] - ip.y + dx/2;
 		projection = vx*sx + vy*sy;
 		// if in the depth range, add to histogram
 		if(z[j] > zmin && z[j] < zmax){
