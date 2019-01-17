@@ -1,4 +1,5 @@
 #include "muonFilter.h"
+#include "analysis.h"
 
 using namespace std;
 
@@ -6,7 +7,7 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy, double mi
 {
 	cout << "Creating new root file: " << outfile << endl;
 	TFile* muonData = new TFile(outfile, "recreate");
-	cout << "Createing new tree ... " << endl;
+	cout << "Creating new tree ... " << endl;
 	
 	// Need to create a copy of the chain and then convert to tree
 	TChain* newchain = (TChain*)chain->CloneTree(0);
@@ -44,6 +45,58 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy, double mi
 		
 	// Print how many entries in the new tree there are
 	cout << "Total muon entries: " << newtree->GetEntries() << endl; 
+
+}
+
+// Function to filter all clusters to retain
+void muonFilterNoDelta(TTree *chain, char const *outfile, double minEnergy, double minccf, double minTrackLength, double maxdEdx){
+
+	cout << "Creating new root file: " << outfile << endl;
+	TFile *goodMuonFile = new TFile(outfile, "RECREATE");
+	cout << "Creating new tree..." << endl;
+	cout << "Parameters. Minimum cluster energy: " << minEnergy << " Minimum curve correlation factor: " << minccf << " Minimum track length: " << minTrackLength << " Max dEdx: " << maxdEdx << endl;
+
+	// Create new tree and clone old tree
+	// TTree * goodMuonTree =  chain->CloneTree(0);
+
+	// Set parameters of the old tree
+	cout << 1 << endl;
+	TParameter<double> *ccf;
+	TParameter<double> *qTotal;
+	TParameter<double> *trackLength;
+	cout << 2 << endl;
+	chain->SetBranchAddress("charge_total", &qTotal);
+	chain->SetBranchAddress("curve_correlation_factor", &ccf);
+	chain->SetBranchAddress("track_length", &trackLength);
+	cout << 3 << endl;
+
+	// Other variables
+	int nEntries = chain->GetEntries();
+	TH1D * dedxFluc;
+	double dedxFlucMax;
+	cout << 4 << endl;
+
+
+	// Add clusterID to the new tree for drawing purposes
+	int clusterID = 0;
+	// goodMuonTree->Branch("clusterID", &clusterID);
+
+	// Loop over all entries and keeps only the ones that pass the filter
+	for (int i = 1; i < nEntries; i++)
+	{
+		cout << 5 << endl;
+		chain->GetEntry(i);
+		cout << 6 << endl;
+		dedxFluc = dedxFluctuation(chain, i);
+		dedxFlucMax = dedxFluc->GetMaximum();
+		cout << dedxFlucMax << endl;
+		if(abs(ccf->GetVal()) > minccf && qTotal->GetVal()/10300*6.4 > minEnergy && trackLength->GetVal() > minTrackLength && dedxFlucMax < maxdEdx){
+			cout << 2 << endl;
+				// goodMuonTree->Fill();
+		}
+	}
+
+
 
 }
 TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot){
@@ -102,29 +155,29 @@ TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, bool plot){
 	return h2; 
 
 }
-void  pixel2pos(double* pixel, int n){
+void  pixel2pos(double* pixel, int n, double dx){
 	
 	for(int i=0; i<n; i++){
-		pixel[i] +=  0.5;
+		pixel[i] +=  (dx/2);
 	}
 }
 
-void pos2pixel(double* pixel, int n){
+void pos2pixel(double* pixel, int n, double dx){
 	for(int i=0; i<n; i++){
-		pixel[i] -= 0.5;
+		pixel[i] -= (dx/2);
 	}
 }
 
-TF1 * fitMuonLine(double *x, double *y, int n){
+TF1 * fitMuonLine(double *x, double *y, int n, double dx){
 	
 	double xmin = getArrayMin(x, n);
 	double xmax = getArrayMax(x, n);
 	
 	// Create TGraph object
-	pixel2pos(x, n); pixel2pos(y, n);
+	pixel2pos(x, n, dx); pixel2pos(y, n, dx);
 	TGraph* gr = new TGraph(n, x, y);
-	pos2pixel(x, n); pos2pixel(y, n);
-	// gr->Draw("apsame");
+	pos2pixel(x, n, dx); pos2pixel(y, n, dx);
+
 	// Create TF1 Object
 	TF1* tf = new TF1("linear_fit","[0] + [1]*x", xmin, xmax);
 	
@@ -141,7 +194,7 @@ TF1 * fitMuonLine(double *x, double *y, int n){
 	return tf;
 }
 
-void  getZ(double *x, double *y, double *z, int n){
+void  getZ(double *x, double *y, double *z, int n, double dx){
 
 	double xmin = getArrayMin(x, n);
 	double xmax = getArrayMax(x, n);
@@ -150,7 +203,7 @@ void  getZ(double *x, double *y, double *z, int n){
 
 	// Get the best fit of the data
 	TF1* fit;
-	fit = fitMuonLine(x, y, n);
+	fit = fitMuonLine(x, y, n, dx);
 
 	// Calculate the slope in the z direction
 	double slope = fit->GetParameter(1);
@@ -184,7 +237,7 @@ position::position(double x, double y){
 	this->y = y;
 }
 
-position getInitialPosition(double *x, double *y, int n){
+position getInitialPosition(double *x, double *y, int n, double dx){
 
 	double xmin = getArrayMin(x, n);
 	double xmax = getArrayMax(x, n);
@@ -198,7 +251,7 @@ position getInitialPosition(double *x, double *y, int n){
 	xw /= n;
 
 	// Gets the slope track because it is necessary for distiguishing to inital values
-	TF1 * tf = fitMuonLine(x, y, n);
+	TF1 * tf = fitMuonLine(x, y, n, dx);
 	double slope = tf->GetParameter(1);
 
 	position ip;
@@ -262,13 +315,13 @@ void getDistanceFromTrack(double *x, double *y, double *q, int n, double zmin, d
 	bool deltaray = false;
 	double sx, sy, projection;
 	// Get information about the line
-	TF1* tf = fitMuonLine(x, y, n);
+	TF1* tf = fitMuonLine(x, y, n, dx);
 	double slope = -1/tf->GetParameter(1);
 	double *z = new double[n];
 	getZ(x, y, z, n);
 	double vx = 1/sqrt(1 + pow(slope,2));
 	double vy = slope/sqrt(1 + pow(slope,2));
-	position ip = getInitialPosition(x, y, n);
+	position ip = getInitialPosition(x, y, n, dx);
 	
 	// Calculate the length of the line segment
 	double xmin = getArrayMin(x, n); double xmax = getArrayMax(x, n);
@@ -309,13 +362,13 @@ void getDistanceFromTrack(double *x, double *y, double *q, double *dedxIn, int n
 	bool deltaray = false;
 	double sx, sy, projection;
 	// Get information about the line
-	TF1* tf = fitMuonLine(x, y, n);
+	TF1* tf = fitMuonLine(x, y, n, dx);
 	double slope = -1/tf->GetParameter(1);
 	double *z = new double[n];
 	getZ(x, y, z, n);
 	double vx = 1/sqrt(1 + pow(slope,2));
 	double vy = slope/sqrt(1 + pow(slope,2));
-	position ip = getInitialPosition(x, y, n);
+	position ip = getInitialPosition(x, y, n, dx);
 	
 	// Calculate the length of the line segment
 	double xmin = getArrayMin(x, n); double xmax = getArrayMax(x, n);

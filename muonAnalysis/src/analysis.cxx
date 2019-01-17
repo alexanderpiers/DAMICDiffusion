@@ -2,7 +2,6 @@
 
 using namespace std;
 
-
 // Plots the 2D histogam with 
 TH2D* histEnergyvDistance(TTree *tree, double zmin, double zmax, bool resolveDeltaRay){
 	// Make definitions
@@ -80,7 +79,7 @@ TH2D* histEnergyvDistance(TTree *tree, double zmin, double zmax, bool resolveDel
 
 }
 
-TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool energyFilt, double emin, double emax, bool deltaRayRejection, bool draw){
+TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool energyFilt, double emin, double emax, bool deltaRayRejection, bool draw, double dx, int trackThreshold){
 
 	// Define parameters
 	TH1D *h1 = new TH1D("t", "Spread of Muon Tracks", 80, -4, 4);
@@ -92,6 +91,7 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 	vector<double> *yVec = 0;
 	vector<double> *qVec = 0;
 	vector<double> *dedxVec = 0;
+	int trackLength;
 	
 	if(dedxFilt){
 
@@ -100,6 +100,7 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 		tree->SetBranchAddress("y", &yVec);
 		tree->SetBranchAddress("q", &qVec);
 		tree->SetBranchAddress("dedx", &dedxVec);
+		tree->SetBranchAddress("trackLength", &trackLength);
 	}else{
 
 		// Set the appropriate branch address
@@ -116,15 +117,16 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 	double projArray[100000];
 	double qEnergyArray[100000];
 	double dedxOut[100000];
-	int nTracks = tree->GetEntries();
+	// int nTracks = tree->GetEntries();
+	int nTracks = 2000;
 	// Iterate over all track entries
 	for(int i=0; i<nTracks; i++){
 		zcount = 0;
 		dedx = 0;
 		tree->GetEntry(i);
 		if(dedxFilt){
-			if(!xVec->empty()){
-				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), &(dedxVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedxOut, zcount);
+			if(!xVec->empty() && trackLength > trackThreshold){
+				getDistanceFromTrack(&(xVec->at(0)), &(yVec->at(0)), &(qVec->at(0)), &(dedxVec->at(0)), xVec->size(), zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedxOut, zcount, dx);
 				if(energyFilt){
 					for (int j=0; j<zcount; j++)
 					{
@@ -145,7 +147,7 @@ TH1D* histDistance(TTree *tree, double zmin, double zmax, bool dedxFilt, bool en
 			}	
 			
 			// Finds the distance of each point in the track. Returns projArry and qEnergyArray with the correct depth filter		
-			getDistanceFromTrack(xx, yy, qq, n, zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount);
+			getDistanceFromTrack(xx, yy, qq, n, zmin, zmax, deltaRayRejection, projArray, qEnergyArray, dedx, zcount, dx);
 			
 			// Fill the histogram
 			if(energyFilt){
@@ -248,6 +250,89 @@ TGraph* sigmaVDepth(TTree *tree, double deltaZ, double zstart, double zend, doub
 	tg->Fit(f, "SR0");
 	
 	return tg;
+
+}
+
+TGraphErrors* sigmaVDepthFile(const char *filename, double emin, double emax){
+
+	TFile *inFile = new TFile(filename);
+
+	// Define varaibles that we need for the TGraph
+	double z[500];
+	double sigma[500];
+	double sigmaErr[500];
+	double meanEnergy;
+	int count = 0;
+	const int nTitleInfo = 4;
+	string titleInformation[nTitleInfo];
+	string remainingTitleString;
+	int substringStartPos, substringDelimiterPos;
+
+	// Gaussian fit
+	TF1 *chargeDistributionFit = new TF1("charge", "gaus", -1.5, 1.5);
+
+	// Set up an iterator of all the histograms in the file
+	TList *histogramList = inFile->GetListOfKeys();
+	TIter histogramIter(histogramList);
+	TKey *histogramKey;
+	TH1D *h;
+	string histogramName;
+
+	// Iterate over all histogram keys to get the data to make the plot of sigma v depth
+	while( histogramKey = (TKey*)histogramIter()){
+
+		histogramName = histogramKey->GetName();
+		if(histogramName.find("depth") != string::npos && histogramKey->GetCycle() == 1 && histogramKey->ReadObj()->InheritsFrom("TH1")){
+			
+			h = (TH1D*)histogramKey->ReadObj();
+
+			// Parse data from histogram name using the "_" delimeter to separate parts
+			substringStartPos = 0;
+			substringDelimiterPos = histogramName.find("_", substringStartPos);			
+			substringStartPos = substringDelimiterPos;
+			for(int i=0; i<nTitleInfo; i++){
+				substringDelimiterPos = histogramName.find("_", substringStartPos + 1);
+				titleInformation[i] = histogramName.substr(substringStartPos + 1, substringDelimiterPos - substringStartPos - 1);
+				substringStartPos = substringDelimiterPos;
+			}
+
+			// Calculate the mean energy from the histogram title and use it to determine if we are in the desired energy range
+			meanEnergy = (strtod(&titleInformation[2].at(0), nullptr) + strtod(& (titleInformation[3].substr(0, titleInformation[3].find("kev"))).at(0), nullptr)) / 2;
+
+			if( meanEnergy > emin && meanEnergy < emax){
+				// Fit the histogram and extract 
+				h->Fit("charge", "QRI0");
+				sigma[count] = chargeDistributionFit->GetParameter(2);
+				sigmaErr[count] = chargeDistributionFit->GetParError(2);
+				z[count] = (strtod(&titleInformation[0].at(0), nullptr) + strtod(& (titleInformation[1].substr(0, titleInformation[1].find("um"))).at(0), nullptr)) / 2;
+				cout << sigma[count] << endl;
+				count++;
+			}
+			// cout << "good entry" << endl;
+		}
+	}
+
+	// Create the TGraphError and add data to it
+	TGraphErrors *tg = new TGraphErrors(count, z, sigma, NULL, sigmaErr);
+
+	// Scale graph and errors to be in units of um (not pixels)
+	for(int i=0; i<tg->GetN(); i++){
+		tg->GetY()[i] *= (pixelsize/um);
+		tg->GetEY()[i] *= (pixelsize/um);
+		tg->GetX()[i] *= (1./um);
+	}
+
+	// Fit data to sigma^2 = A*ln(1-b*z)
+	TF1 *f = new TF1("fMuon", "TMath::Sqrt( [0]*TMath::Log([2]-x*[1]))", 0, CCDWidth/um);	
+	
+	f->SetParameter(0, -2*kb*T*epsSi/(rho*q));
+	f->SetParameter(1, 1/(epsSi*Vapp/(rho*CCDWidth)+0.5*CCDWidth));
+	f->FixParameter(2, 1);
+
+	tg->Fit("fMuon", "QRI0", "", 0.4*CCDWidth/um, CCDWidth/um);
+
+	return tg;
+
 
 }
 
@@ -562,11 +647,12 @@ void resampleMuonTrack(TTree *tree, const char *outfile, const int sampleRatio, 
 		fineTree->Branch("xiNew", &xiNew);
 		fineTree->Branch("yiNew", &yiNew);
 
-		///int nTracks = tree->GetEntries();
-		int nTracks = 500;
+		int nTracks = tree->GetEntries();
+		// int nTracks = 500;
 		// Iterate over the number of tracks and resample the contents
 		for (int i=0; i<nTracks; i++)
 		{
+			cout << i << endl;
 			tree->GetEntry(i);
 			// iterate over all pixels in the track
 			for (int j=0; j<x->size(); j++)
@@ -590,7 +676,6 @@ void resampleMuonTrack(TTree *tree, const char *outfile, const int sampleRatio, 
 
 			// Fine the resample track into the new tree
 			fineTree->Fill();
-
 			// Clear the vectors
 			xFine.clear();
 			yFine.clear();
@@ -600,7 +685,7 @@ void resampleMuonTrack(TTree *tree, const char *outfile, const int sampleRatio, 
 		}
 
 		// Write the tree to file
-		fineTree->Write();
+		outfileRT->Write();
 		outfileRT->Close();
 
 	}else{
@@ -609,6 +694,7 @@ void resampleMuonTrack(TTree *tree, const char *outfile, const int sampleRatio, 
 
 	return;
 }
+
 void saveAllHist(TTree *tree){
 	int n = tree->GetEntries();
 	TArrayD *x, *y, *q;
@@ -648,8 +734,6 @@ void saveAllHist(TTree *tree){
 		delete img;
 	
 	}
-	
-
 }
 
 // Saves a 1D histogram to filename
@@ -675,8 +759,13 @@ void savehist(TH2D *h, const char *filename, char *histname){
 
 void savegraph(TGraph *graph, const char *filename, char* objname){
 
+	cout << 1 << endl;
 	TFile *f = new TFile(filename, "UPDATE");
+	
+	cout << 2 << endl;
 	graph->Write(objname);
+
+	cout << 3 << endl;
 	delete f;
 
 	return;
