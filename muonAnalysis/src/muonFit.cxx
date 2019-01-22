@@ -1,27 +1,9 @@
-#include "TH2F.h"
-#include "TMath.h"
-#include "Math/Minimizer.h"
-#include "Math/Factory.h"
-#include "Math/Functor.h"
-#include "TError.h"
-#include "TGraph.h"
-#include "TF1.h"
-#include "TVector3.h"
-#include "TCanvas.h"
-#include "TArray.h"
-#include "TChain.h"
-#include "TParameter.h"
-#include <fstream>
-
-const Double_t zd = 500; //thickness of the CCD in microns
-const Double_t ps = 15; //pixel size in um
-const Double_t cyield = 70; //yield (in electrons per um) of region with ~constant deposition
+#include "muonFit.h"
 
 TH2F* cluster = NULL;
 Double_t sthr, sadc; //standard deviation of noise
 TVector3 vfront(0,0,0); //guess position of front point
 TVector3 vback(0,0,0); //guess position of end point
-
 ofstream fout;
 
 TH2F* ArraysToTH2F(TArrayD* x, TArrayD* y, TArrayD* val){
@@ -142,7 +124,7 @@ double TrackLogLikelihood(const double *xx){
     
     Int_t nx = cluster->GetNbinsX();
     Int_t ny = cluster->GetNbinsY();
-    Double_t bxlow = cluster->GetBinLowEdge(1);
+    Double_t bxlow = cluster->GetXaxis()->GetBinLowEdge(1);
     Double_t bylow = cluster->GetYaxis()->GetBinLowEdge(1);
     
     //To hold information
@@ -305,7 +287,7 @@ double TrackLogLikelihood(const double *xx){
 }
 
 //pass the cluster and guesses for the start and end of the track
-void muonFit(TH2F* cl, Double_t c = 5.5E-4, Double_t sadc_ = 28, Double_t sthr_ = 2){
+void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t sthr_){
     
     //initialize the objects
     sadc = sadc_;
@@ -324,7 +306,7 @@ void muonFit(TH2F* cl, Double_t c = 5.5E-4, Double_t sadc_ = 28, Double_t sthr_ 
     TH1F* qalong = new TH1F("qalong","qalong",(Int_t) ((exh-exl).Mag()+0.5),0,(Int_t) ((exh-exl).Mag()+0.5));
     TH1F* nalong = new TH1F("nalong","nalong",(Int_t) ((exh-exl).Mag()+0.5),0,(Int_t) ((exh-exl).Mag()+0.5));
     
-    for(Int_t i=1; i<=cl->GetNbinsX(); i++)
+    for(Int_t i=1; i<=cl->GetNbinsX(); i++){
         for(Int_t j=1; j<=cl->GetNbinsY(); j++){
             
             if(cl->GetBinContent(i,j)<=0) continue;
@@ -334,6 +316,7 @@ void muonFit(TH2F* cl, Double_t c = 5.5E-4, Double_t sadc_ = 28, Double_t sthr_ 
             qalong->SetBinContent(bin,qalong->GetBinContent(bin)+cl->GetBinContent(i,j));
             nalong->SetBinContent(bin,nalong->GetBinContent(bin)+1.);
         }
+    }
     
     Double_t qalong_mean = qalong->Integral() / qalong->GetNbinsX();
     qalong->Smooth(); //not the best way to deal with binning effects
@@ -502,24 +485,33 @@ void muonFit(TH2F* cl, Double_t c = 5.5E-4, Double_t sadc_ = 28, Double_t sthr_ 
     migrad->SetFixedVariable(4,"zo",0);
     
     Bool_t mstat = migrad->Minimize();
-//    const double *mval = migrad->X();
-//    const double *merr = migrad->Errors();
+    const double *mval = migrad->X();
+    const double *merr = migrad->Errors();
 //    
-//    fout << nblanked << " ";
-//    fout << (vfront + mval[0]*(vback-vfront).Unit()).X() << " " << (vfront + mval[0]*(vback-vfront).Unit()).Y() << " " << (vfront + mval[1]*(vback-vfront).Unit()).X() << " " << (vfront + mval[1]*(vback-vfront).Unit()).Y() << " ";
-//    fout << mval[2] << " " << mval[3] << " " << mval[4] << " " << mval[6] << " " << migrad->MinValue() << " " << mstat << std::endl;
-//    
-//    delete migrad;
-//
-//    nalong->Delete();
-//    qalong->Delete();
-//    cluster->Delete();
+    fout << nblanked << " ";
+    fout << (vfront + mval[0]*(vback-vfront).Unit()).X() << " " << (vfront + mval[0]*(vback-vfront).Unit()).Y() << " " << (vfront + mval[1]*(vback-vfront).Unit()).X() << " " << (vfront + mval[1]*(vback-vfront).Unit()).Y() << " ";
+    fout << mval[2] << " " << mval[3] << " " << mval[4] << " " << mval[6] << " " << migrad->MinValue() << " " << mstat << std::endl;
+
+    if(histArray != nullptr){
+        histArray[0]->Fill(mval[2]);
+        histArray[1]->Fill(mval[3]);
+        histArray[2]->Fill(merr[2]);
+        histArray[3]->Fill(merr[3]);
+    }
+
+    delete migrad;
+    nalong->Delete();
+    qalong->Delete();
+    cluster->Delete();
+
+    
+    return;
 }
 
-void muonFitMany(TChain* t, Double_t c = 5.5E-4, Double_t sadc_ = 18, Double_t sthr_ = 3){
+void muonFitMany(TChain* t, TH1D **histArray, Double_t c, Double_t sadc_, Double_t sthr_){
     
     //output text file
-    //fout.open("muon_fits.txt");
+    fout.open("~/muon_fits.txt");
     
     //variables to load
     Int_t RUNID, cluster_id, EXTID;
@@ -558,7 +550,7 @@ void muonFitMany(TChain* t, Double_t c = 5.5E-4, Double_t sadc_ = 18, Double_t s
     
     Int_t nentries = t->GetEntries();
     
-    //fout << "runid:extid:clid:npix:slength:nblanked:front_x:front_y:back_x:back_y:smax:a:zo:yield:ll:mstat" << std::endl;
+    fout << "runid:extid:clid:npix:slength:nblanked:front_x:front_y:back_x:back_y:smax:a:zo:yield:ll:mstat" << std::endl;
     
     for(Int_t i=0; i<nentries; i++){
         
@@ -570,15 +562,38 @@ void muonFitMany(TChain* t, Double_t c = 5.5E-4, Double_t sadc_ = 18, Double_t s
         
         //if(npix->GetVal() > 50 && mask_edge->GetVal() == 0 && raw_nsat->GetVal() == 0 && clength->GetVal()/slength->GetVal() > 0.95 && clength->GetVal()/slength->GetVal() < 1.1 && TMath::Abs(corrfact->GetVal()) > 0.99 && qmax->GetVal()*npix->GetVal()/qtotal->GetVal() < 6. && track_rms->GetVal() < 2.){
         
-        if(cluster_id==20){
+    
          
-            //fout << RUNID << " " << EXTID << " " << cluster_id << " " << npix->GetVal() << " " << slength->GetVal() << " ";
-            
-            TH2F* cl = ArraysToTH2F(pixel_x,pixel_y,pixel_val);
-            muonFit(cl,c,sadc_,sthr_);
-            //cl->Delete();
-        }
+        fout << RUNID << " " << EXTID << " " << cluster_id << " " << npix->GetVal() << " " << slength->GetVal() << " ";
+        
+        TH2F* cl = ArraysToTH2F(pixel_x,pixel_y,pixel_val);
+        muonFit(cl, histArray, c, sadc_, sthr_);
+        cl->Delete();
+        
     }
     
-    //fout.close();
+    fout.close();
+    return;
+
+}
+
+void saveMuonFitToFile(const char* outfile, const char *infile, Double_t c, Double_t sadc_, Double_t sthr_){
+
+    TFile *fMuonTracks = new TFile(infile);
+    TChain *tMuonTracks = (TChain*)fMuonTracks->Get("clusters_tree");
+    TFile *fMuonFit = new TFile(outfile, "RECREATE");
+
+    // Create an array of histograms
+    TH1D *histogramArray[4];
+    histogramArray[0] = new TH1D("sigmamax", "sigmamax", 50, 5, 15);
+    histogramArray[1] = new TH1D("a", "a", 100, -15, 15);
+    histogramArray[2] = new TH1D("sigmamaxErr", "sigmaMaxErr", 50, 0, 1);
+    histogramArray[3] = new TH1D("aErr", "aErr", 50, 0, 10);
+
+    muonFitMany(tMuonTracks, histogramArray, c, sadc_, sthr_);
+
+    fMuonFit->Write();
+    delete fMuonFit;
+
+    return;
 }
