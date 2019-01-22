@@ -1,16 +1,20 @@
 #include "muonFilter.h"
 #include "analysis.h"
+#include "newdedxFilterTree.h"
+#include "muonFit.h"
 #include <string>
 
 using namespace std;
 
 void newMuonRootFile();
+void saveAllMuonTracks();
 
 int main(int argc, char **argv){
 
 	// Get tree of muon data
 	TFile * f = new TFile("~/DAMICDiffusion/rootfiles/dedxfilter_8kev_fine.root");
 	TTree * t = (TTree*)f->Get("dedxFilterTreeFine");
+
 	// TFile * f = new TFile("~/large_muon_set.root");
 	// TTree * t = (TTree*)f->Get("clusters_tree");
 	cout << "Number of tree entries: " << t->GetEntries() <<  endl;
@@ -79,9 +83,17 @@ int main(int argc, char **argv){
 	// newMuonRootFile();
 
 	// Create Set of "good" muon clusterss
-	TFile *muonClusterFile = new TFile("~/large_muon_set.root");
-	TTree *muonClusterTree = (TTree*)muonClusterFile->Get("clusters_tree");
-	muonFilterNoDelta(muonClusterTree, "~/test_muon_no_delta.root", 500, 0.995, 225, 20);
+	// TFile *muonClusterFile = new TFile("~/large_muon_set.root");
+	// TTree *muonClusterTree = (TTree*)muonClusterFile->Get("clusters_tree");
+	// muonFilterNoDelta(muonClusterTree, "~/test_muon_no_delta.root", 500, 0.995, 225, 20);
+	// newMuonRootFile();
+	// createDedxTree();
+	// createGoodMuonTree();
+	// plotAllMuonTracks("~/goodMuons.root");
+	// saveAllMuonTracks();
+
+	saveMuonFitToFile("~/DAMICDiffusion/rootfiles/likelihoodFit/muon15kev_0999ccf_fits.root", "~/goodMuons15keV_0999ccf.root");
+
 	
 	cout << "Analysis successfully run." << endl;
 
@@ -92,7 +104,52 @@ void newMuonRootFile(){
 
 	TChain* c = new TChain("clusters_tree");
 	c->Add("/gscratch/damic/data/uchicago/processed/D3500/SbBe_2015-04-10_FullBe/root/Image1*.root");
-	muonFilter(c, "~/large_muon_set.root", 500, 0.995);
+	muonFilter(c, "~/test_muon_no_delta_0999ccf.root", 500, 0.999);
+	// muonFilterNoDelta(c, "~/test_muon_no_delta.root", 500, 0.995, 225, 20);
+
+	return;
+}
+
+void saveAllMuonTracks(){
+
+	const char *outfile = "~/DAMICDiffusion/rootfiles/all_muon_tracks_20kev_0999ccf.root";
+	const char *infile = "~/goodMuons20keV_0999ccf.root";
+
+	TFile *f = new TFile(infile);
+	TTree *t = (TTree*)f->Get("clusters_tree");
+
+	TArrayD *x;
+	TArrayD *y;
+	TArrayD *q;
+	TArrayD xcopy, ycopy, qcopy;
+	double *xArr, *yArr;
+	int n;
+	TParameter<double> *ccf;
+	t->SetBranchAddress("curve_correlation_factor", &ccf);
+	t->SetBranchAddress("pixel_x", &x);
+	t->SetBranchAddress("pixel_y", &y);
+	t->SetBranchAddress("pixel_val", &q);
+
+	char *histname = new char[100];
+
+	for (int i = 0; i < t->GetEntries(); i++)
+	{
+		cout << i << endl;
+		t->GetEntry(i);
+		xcopy = *x;
+		ycopy = *y;
+		qcopy = *q;
+
+		TH2D* h2 = new TH2D();
+		h2 = plot2DTrack(&xcopy, &ycopy, &qcopy, false);
+		h2->SetOption("colz");
+		sprintf(histname, "muon%i", i);
+		savehist(h2, outfile, histname);
+		delete h2;
+	}
+
+
+
 	return;
 }
 
