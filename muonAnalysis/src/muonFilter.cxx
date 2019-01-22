@@ -14,6 +14,7 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy, double mi
 	TTree* newtree = newchain->GetTree();
 
 	int nentries = int(chain->GetEntries());
+	// int nentries = 2000;
 	cout << "number of entries: " << nentries << endl;
 	int ientry = 0, nbytes = 0, nb = 0;
 	
@@ -30,12 +31,12 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy, double mi
 		if(ientry < 0) break;
 		nb = chain->GetEntry(i);
 		nbytes += nb;
-		
+
 		// If we satisfy the rejection criteria for a muon, fill the tree
 		if( abs(ccf->GetVal()) >  minccf && chargetot->GetVal()/10300*6.4 > minEnergy)
 		{
-		newtree->Fill();
-		
+			cout << i << endl;
+			newtree->Fill();		
 		}
 	}
 	
@@ -48,57 +49,6 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy, double mi
 
 }
 
-// Function to filter all clusters to retain
-void muonFilterNoDelta(TTree *chain, char const *outfile, double minEnergy, double minccf, double minTrackLength, double maxdEdx){
-
-	cout << "Creating new root file: " << outfile << endl;
-	TFile *goodMuonFile = new TFile(outfile, "RECREATE");
-	cout << "Creating new tree..." << endl;
-	cout << "Parameters. Minimum cluster energy: " << minEnergy << " Minimum curve correlation factor: " << minccf << " Minimum track length: " << minTrackLength << " Max dEdx: " << maxdEdx << endl;
-
-	// Create new tree and clone old tree
-	// TTree * goodMuonTree =  chain->CloneTree(0);
-
-	// Set parameters of the old tree
-	cout << 1 << endl;
-	TParameter<double> *ccf;
-	TParameter<double> *qTotal;
-	TParameter<double> *trackLength;
-	cout << 2 << endl;
-	chain->SetBranchAddress("charge_total", &qTotal);
-	chain->SetBranchAddress("curve_correlation_factor", &ccf);
-	chain->SetBranchAddress("track_length", &trackLength);
-	cout << 3 << endl;
-
-	// Other variables
-	int nEntries = chain->GetEntries();
-	TH1D * dedxFluc;
-	double dedxFlucMax;
-	cout << 4 << endl;
-
-
-	// Add clusterID to the new tree for drawing purposes
-	int clusterID = 0;
-	// goodMuonTree->Branch("clusterID", &clusterID);
-
-	// Loop over all entries and keeps only the ones that pass the filter
-	for (int i = 1; i < nEntries; i++)
-	{
-		cout << 5 << endl;
-		chain->GetEntry(i);
-		cout << 6 << endl;
-		dedxFluc = dedxFluctuation(chain, i);
-		dedxFlucMax = dedxFluc->GetMaximum();
-		cout << dedxFlucMax << endl;
-		if(abs(ccf->GetVal()) > minccf && qTotal->GetVal()/10300*6.4 > minEnergy && trackLength->GetVal() > minTrackLength && dedxFlucMax < maxdEdx){
-			cout << 2 << endl;
-				// goodMuonTree->Fill();
-		}
-	}
-
-
-
-}
 TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot){
 	
 	// Convert TArrayD to regular array

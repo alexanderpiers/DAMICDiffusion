@@ -21,8 +21,6 @@
 
 void muonFilter(TChain* chain, char const * outfile, double minEnergy=500., double minccf=0.99);
 
-void muonFilterNoDelta(TTree *chain, char const *outfile, double minEnergy, double minccf, double minTrackLength, double maxdEdx);
-
 TH2D* plot2DTrackDepth(TArrayD *x, TArrayD *y, bool plot=true);
 	
 TH2D* plot2DTrack(TArrayD *x, TArrayD *y, TArrayD *q, bool plot=true);
