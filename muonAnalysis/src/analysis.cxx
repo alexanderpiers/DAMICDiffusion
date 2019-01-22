@@ -423,6 +423,41 @@ TH1D* dedxFluctuation(TTree *tree, int i){
 	return h; 
 }
 
+TH1D* dedxFluctuation(double *x, double *y, double *e, int n){
+	// Get slope of line and find track length
+	TF1 *tf = fitMuonLine(x, y, n);
+	double slope = tf->GetParameter(1);
+	double xrange = getArrayMax(x, n) - getArrayMin(x, n);
+	double yrange = xrange*slope;
+	double length = sqrt(pow(xrange, 2) + pow(yrange, 2));
+
+	position ip = getInitialPosition(x, y, n);
+	double xi = ip.x; double yi = ip.y;
+
+	// Create histogram
+	TH1D *h = new TH1D("h", "dE/dx v Position", int(length), 0, length);
+	TStyle *gStyle = new TStyle();
+
+	// Iterate over all points, find the position and energy, and add it to the histogram
+	double sx, sy, r;
+	double vx = 1 / sqrt(1 + pow(slope, 2));
+	double vy = slope / sqrt(1 + pow(slope, 2));
+	for(int i=0; i<n; i++){
+		sx = x[i] + 0.5 - xi;
+		sy = y[i] + 0.5 - yi;
+		r = vx*sx + vy*sy;
+
+		h->Fill(abs(r), e[i]);
+	}
+
+	// Setting histogram parameters
+	h->SetTitle("Approx. #frac{dE}{dx} vs Position along the track");
+	h->GetXaxis()->SetTitle("Position Along Track (pixels)");
+	h->GetYaxis()->SetTitle("#frac{dE}{dx} (keV/pixel)");
+	gStyle->SetOptStat(0);
+	return h; 
+}
+
 void dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int startIdx){
 
 	TFile *outfileRT = new TFile(outfile, "RECREATE");

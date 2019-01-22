@@ -1,3 +1,6 @@
+#ifndef analysis_H
+#define analysis_H
+
 #include "muonFilter.h"
 #include "settings.h"
 #include "TStyle.h"
@@ -22,6 +25,8 @@ TGraph* plotSigmaVDepth();
 
 TH1D* dedxFluctuation(TTree *tree, int i);
 
+TH1D* dedxFluctuation(double *x, double *y, double *e, int n);
+
 void dedxFilterTree(TTree *tree, const char *outfile, double dedxThresh, int startIdx=0);
 
 void resampleMuonTrack(TTree *tree, const char *outfile, const int sampleRatio=5, bool dedxFilter=true);
@@ -33,3 +38,5 @@ void savehist(TH1D *h, const char *filename, char *histname);
 void savehist(TH2D *h, const char *filename, char *histname);
 
 void savegraph(TGraph *graph, const char *filename, char* objname);
+
+#endif
