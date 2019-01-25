@@ -30,9 +30,9 @@ Double_t fitf(Double_t z, Double_t* par);
 
 double TrackLogLikelihood(const double *xx);
 
-void muonFit(TH2F* cl, TH1D **histArray = nullptr, Double_t c = 5.5E-4, Double_t sadc_ = 28, Double_t sthr_ = 2);
+void muonFit(TH2F* cl, TTree *tMuon = nullptr, Double_t *b = nullptr, Double_t c = 5.5E-4, Double_t sadc_ = 28, Double_t sthr_ = 2);
 
-void muonFitMany(TChain* t, TH1D **histArray = nullptr, Double_t c = 5.5E-4, Double_t sadc_ = 18, Double_t sthr_ = 3);
+void muonFitMany(TChain* t, TTree *tMuon = nullptr, Double_t *b = nullptr, Double_t c = 5.5E-4, Double_t sadc_ = 18, Double_t sthr_ = 3);
 
 void saveMuonFitToFile(const char* outfile, const char *infile, Double_t c = 5.5E-4, Double_t sadc_ = 18, Double_t sthr_ = 3);
 

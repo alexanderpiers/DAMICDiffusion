@@ -287,7 +287,7 @@ double TrackLogLikelihood(const double *xx){
 }
 
 //pass the cluster and guesses for the start and end of the track
-void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t sthr_){
+void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Double_t sthr_){
     
     //initialize the objects
     sadc = sadc_;
@@ -411,8 +411,8 @@ void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t st
     TF1* l = new TF1("l","pol1(0)",0,5000);
     l->FixParameter(0,intercept);
     l->FixParameter(1,slope);
-    vfront.Print(); vback.Print();
-    std::cout << "Cut: " << (cyield + 2.5*TMath::Sqrt(cyield))*3.6/1000./c*TMath::Sqrt(ps*(xhend-xhstart)*ps*(xhend-xhstart) + zd*zd)/(xhend-xhstart) << std::endl;
+    // vfront.Print(); vback.Print();
+    // std::cout << "Cut: " << (cyield + 2.5*TMath::Sqrt(cyield))*3.6/1000./c*TMath::Sqrt(ps*(xhend-xhstart)*ps*(xhend-xhstart) + zd*zd)/(xhend-xhstart) << std::endl;
     new TCanvas();
     cluster->Draw("COLZ");
     l->Draw("same");
@@ -421,8 +421,8 @@ void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t st
     new TCanvas();
     nalong->Draw();
     
-    std::cout << fmin << " " << fmax << std::endl;
-    std::cout << bmin << " " << bmax << std::endl;
+    // std::cout << fmin << " " << fmax << std::endl;
+    // std::cout << bmin << " " << bmax << std::endl;
     
 //    double xx[7] = {6.77744e-02,4.30587e+01,7.79478e+00,5.55929e+00,0,c,7.39027e+01};
 //
@@ -463,7 +463,7 @@ void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t st
     // set tolerance , etc...
     migrad->SetMaxFunctionCalls(1000000);
     migrad->SetTolerance(0.0001);
-    migrad->SetPrintLevel(1);
+    migrad->SetPrintLevel(0);
     
     // create funciton wrapper for minmizer
     // a IMultiGenFunction type
@@ -475,7 +475,7 @@ void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t st
     migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
     migrad->SetLimitedVariable(1,"bs",(vback-vfront).Mag(), 0.001, bmin, bmax);
     migrad->SetLimitedVariable(2,"smax",7, 0.01, 1, 30);
-    migrad->SetLimitedVariable(3,"a", 0.5, 0.01, -10, 10);
+    migrad->SetLimitedVariable(3,"a", -0.5, 0.002, -5, 5);
     //migrad->SetLimitedVariable(4,"zo", 5, 0.001, 0.001, 25);
     //migrad->SetLimitedVariable(5,"c",c,1E-6,2E-6,2E-2);
     migrad->SetLimitedVariable(6,"yield",cyield,0.1,0,500);
@@ -492,11 +492,12 @@ void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t st
     fout << (vfront + mval[0]*(vback-vfront).Unit()).X() << " " << (vfront + mval[0]*(vback-vfront).Unit()).Y() << " " << (vfront + mval[1]*(vback-vfront).Unit()).X() << " " << (vfront + mval[1]*(vback-vfront).Unit()).Y() << " ";
     fout << mval[2] << " " << mval[3] << " " << mval[4] << " " << mval[6] << " " << migrad->MinValue() << " " << mstat << std::endl;
 
-    if(histArray != nullptr){
-        histArray[0]->Fill(mval[2]);
-        histArray[1]->Fill(mval[3]);
-        histArray[2]->Fill(merr[2]);
-        histArray[3]->Fill(merr[3]);
+    if(tMuon != nullptr){
+        b[0] = mval[2];
+        b[1] = mval[3];
+        b[2] = merr[2];
+        b[3] = merr[3];
+        tMuon->Fill();
     }
 
     delete migrad;
@@ -508,7 +509,7 @@ void muonFit(TH2F* cl, TH1D **histArray, Double_t c, Double_t sadc_, Double_t st
     return;
 }
 
-void muonFitMany(TChain* t, TH1D **histArray, Double_t c, Double_t sadc_, Double_t sthr_){
+void muonFitMany(TChain* t, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Double_t sthr_){
     
     //output text file
     fout.open("~/muon_fits.txt");
@@ -567,7 +568,8 @@ void muonFitMany(TChain* t, TH1D **histArray, Double_t c, Double_t sadc_, Double
         fout << RUNID << " " << EXTID << " " << cluster_id << " " << npix->GetVal() << " " << slength->GetVal() << " ";
         
         TH2F* cl = ArraysToTH2F(pixel_x,pixel_y,pixel_val);
-        muonFit(cl, histArray, c, sadc_, sthr_);
+        muonFit(cl, tMuon, b, c, sadc_, sthr_);
+        if(abs(b[1]) > 9) cout << i << endl;
         cl->Delete();
         
     }
@@ -583,14 +585,22 @@ void saveMuonFitToFile(const char* outfile, const char *infile, Double_t c, Doub
     TChain *tMuonTracks = (TChain*)fMuonTracks->Get("clusters_tree");
     TFile *fMuonFit = new TFile(outfile, "RECREATE");
 
-    // Create an array of histograms
-    TH1D *histogramArray[4];
-    histogramArray[0] = new TH1D("sigmamax", "sigmamax", 50, 5, 15);
-    histogramArray[1] = new TH1D("a", "a", 100, -15, 15);
-    histogramArray[2] = new TH1D("sigmamaxErr", "sigmaMaxErr", 50, 0, 1);
-    histogramArray[3] = new TH1D("aErr", "aErr", 50, 0, 10);
+    double branches[4];
 
-    muonFitMany(tMuonTracks, histogramArray, c, sadc_, sthr_);
+    // Create a tree to store data
+    TTree *tMuonFit = new TTree("muonFit", "muonFit");
+    tMuonFit->Branch("sigmamax", (branches));
+    tMuonFit->Branch("a", (branches + 1));
+    tMuonFit->Branch("sigmamaxErr", (branches + 2));
+    tMuonFit->Branch("aErr", (branches + 3));
+
+    // TH1D *histogramArray[4];
+    // histogramArray[0] = new TH1D("sigmamax", "sigmamax", 50, 5, 15);
+    // histogramArray[1] = new TH1D("a", "a", 100, -15, 15);
+    // histogramArray[2] = new TH1D("sigmamaxErr", "sigmaMaxErr", 50, 0, 1);
+    // histogramArray[3] = new TH1D("aErr", "aErr", 50, 0, 10);
+
+    muonFitMany(tMuonTracks, tMuonFit, branches, c, sadc_, sthr_);
 
     fMuonFit->Write();
     delete fMuonFit;
