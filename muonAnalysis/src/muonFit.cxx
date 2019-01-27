@@ -472,18 +472,20 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
     migrad->SetFunction(f);
     
     // Set the free variables to be minimized!
-    migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
+    // migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
+    migrad->SetFixedVariable(0, "fs", 0.5);
     migrad->SetLimitedVariable(1,"bs",(vback-vfront).Mag(), 0.001, bmin, bmax);
-    migrad->SetLimitedVariable(2,"smax",7, 0.01, 1, 30);
-    migrad->SetLimitedVariable(3,"a", -0.5, 0.002, -5, 5);
+    migrad->SetLimitedVariable(2,"smax",8.5, 0.01, 1, 30);
+    // migrad->SetFixedVariable(2, "smax", 8.77);
+    migrad->SetLimitedVariable(3,"a", -0.5, 0.001, -5, 5);
     //migrad->SetLimitedVariable(4,"zo", 5, 0.001, 0.001, 25);
     //migrad->SetLimitedVariable(5,"c",c,1E-6,2E-6,2E-2);
-    migrad->SetLimitedVariable(6,"yield",cyield,0.1,0,500);
+    // migrad->SetLimitedVariable(6,"yield",cyield,0.1,0,500);
     
     //migrad->SetFixedVariable(0,"fs",0);
     migrad->SetFixedVariable(5,"c",c);
     migrad->SetFixedVariable(4,"zo",0);
-    
+    migrad->SetFixedVariable(6,"yield",cyield);
     Bool_t mstat = migrad->Minimize();
     const double *mval = migrad->X();
     const double *merr = migrad->Errors();
