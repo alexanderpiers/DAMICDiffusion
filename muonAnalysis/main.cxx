@@ -92,7 +92,7 @@ int main(int argc, char **argv){
 	// plotAllMuonTracks("~/goodMuons.root");
 	// saveAllMuonTracks();
 
-	saveMuonFitToFile("~/DAMICDiffusion/rootfiles/likelihoodFit/muon15kev_0999ccf_fits.root", "~/goodMuons15keV_0999ccf.root");
+	saveMuonFitToFile("~/DAMICDiffusion/rootfiles/snolab/likelihoodFit/muonTree40kev_0997ccf_fits_subext_simplex.root", "~/DAMICDiffusion/rootfiles/snolab/goodMuons40keV_400kev_0997ccf_subext.root", 3E-4);
 
 	
 	cout << "Analysis successfully run." << endl;
@@ -103,8 +103,14 @@ int main(int argc, char **argv){
 void newMuonRootFile(){
 
 	TChain* c = new TChain("clusters_tree");
-	c->Add("/gscratch/damic/data/uchicago/processed/D3500/SbBe_2015-04-10_FullBe/root/Image1*.root");
-	muonFilter(c, "~/test_muon_no_delta_0999ccf.root", 500, 0.999);
+	c->Add("/gscratch/damic/data/fermilab/processed/SciInt4/1s-IntW800-OS_1x1_60Co/root/d44_fermilab_Int-800_Exp-1_*_2.root");
+	c->Add("/gscratch/damic/data/fermilab/processed/SciInt4/1s-IntW800-OS_1x1_60Co/root/d44_fermilab_Int-800_Exp-1_*_11.root");
+	c->Add("/gscratch/damic/data/fermilab/processed/SciInt4/1s-IntW800-OS_1x1_60Co/root/d44_fermilab_Int-800_Exp-1_*_12.root");
+	c->Add("/gscratch/damic/data/fermilab/processed/SciInt4/1s-IntW800-OS_1x1_60Co/root/d44_fermilab_Int-800_Exp-1_*_13.root");
+	c->Add("/gscratch/damic/data/fermilab/processed/SciInt4/1s-IntW800-OS_1x1_60Co/root/d44_fermilab_Int-800_Exp-1_*_14.root");
+
+	// c->Add("/gscratch/damic/data/fermilab/processed/SciInt4/1s-IntW800-OS_1x1_60Co/root/*.root");
+	muonFilter(c, "~/DAMICDiffusion/rootfiles/snolab/muon_tracks_400kev_0997ccf_ext13.root", 400, 0.997);
 	// muonFilterNoDelta(c, "~/test_muon_no_delta.root", 500, 0.995, 225, 20);
 
 	return;
@@ -112,8 +118,10 @@ void newMuonRootFile(){
 
 void saveAllMuonTracks(){
 
-	const char *outfile = "~/DAMICDiffusion/rootfiles/all_muon_tracks_20kev_0999ccf.root";
-	const char *infile = "~/goodMuons20keV_0999ccf.root";
+	const char *outfile = "~/DAMICDiffusion/rootfiles/snolab/hist/muon_tracks_50kev_0997ccf_ext3.root";
+	const char *infile = "~/DAMICDiffusion/rootfiles/snolab/goodMuons50keV_400kev_0997ccf_ext3.root";
+	// const char *outfile = "~/draw_regular_muons.root";
+	// const char *infile = "~/muontracks2.root";
 
 	TFile *f = new TFile(infile);
 	TTree *t = (TTree*)f->Get("clusters_tree");
