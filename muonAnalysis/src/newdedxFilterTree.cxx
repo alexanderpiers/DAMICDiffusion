@@ -32,16 +32,16 @@ double getArrayMin(double* arr, int n){
 #endif
 
 // Create a second tree to track index and dedx values because for some reason 
-// thingss are not working as I think they should
+// things are not working as I think they should
 void createDedxTree(){
 
-	TFile *muonClusterFile = new TFile("~/test_muon_no_delta_0999ccf.root", "UPDATE");	
+	TFile *muonClusterFile = new TFile("~/DAMICDiffusion/rootfiles/snolab/muon_tracks_400kev_0997ccf_subext.root", "UPDATE");	
 	TTree *muonClusterTree = (TTree*)muonClusterFile->Get("clusters_tree");
 
 	// Define input variables
 	double minEnergy = 500, minccf = 0.995, maxdEdx = 30;
 	int minTrackLength = 225;
-	const char *outfile = "~/muon_no_delta_0999ccf_dedx.root";
+	const char *outfile = "~/DAMICDiffusion/rootfiles/snolab/muon_tracks_400kev_0997ccf_dedx_subext.root";
 	cout << "Creating new root file: " << outfile << endl;
 	TFile *goodMuonFile = new TFile(outfile, "RECREATE");
 	cout << "Creating new tree..." << endl;
@@ -78,28 +78,22 @@ void createDedxTree(){
 // Uses the tree of muon tracks
 void createGoodMuonTree(){
 
-	double minccf = 0.995;
-	double minTrackLength = 175;
-	double minEnergy = 500;
-	double maxdedx = 12;
+	double minTrackLength = 150;
+	double maxdedx = 50;
 
 	// Read in the required trees
-	TFile *muonClusterFile = new TFile("~/test_muon_no_delta_0999ccf.root");
+	TFile *muonClusterFile = new TFile("~/DAMICDiffusion/rootfiles/snolab/muon_tracks_400kev_0997ccf_subext.root");
 	TTree *muonClusterTree = (TTree*)muonClusterFile->Get("clusters_tree");
-	TFile *dedxFile = new TFile("~/muon_no_delta_0999ccf_dedx.root");
+	TFile *dedxFile = new TFile("~/DAMICDiffusion/rootfiles/snolab/muon_tracks_400kev_0997ccf_dedx_subext.root");
 	TTree *dedxTree = (TTree*)dedxFile->Get("dedx");
 
 	// Clone old tree
-	TFile *newMuonClusterFile = new TFile("~/goodMuons12keV_0999ccf.root", "RECREATE");
+	TFile *newMuonClusterFile = new TFile("~/DAMICDiffusion/rootfiles/snolab/goodMuons50keV_400kev_0997ccf_subext.root", "RECREATE");
 	TTree *newMuonClusterTree = muonClusterTree->CloneTree(0);
 
 	// Set tree variables
-	TParameter<double> *ccf;
-	TParameter<double> *chargetot;
 	TParameter<double> *trackLength;
 	double efMax;
-	muonClusterTree->SetBranchAddress("curve_correlation_factor", &ccf);
-	muonClusterTree->SetBranchAddress("charge_total", &chargetot);
 	muonClusterTree->SetBranchAddress("track_length", &trackLength);
 	dedxTree->SetBranchAddress("energyFluctuationMaximum", &efMax);
 

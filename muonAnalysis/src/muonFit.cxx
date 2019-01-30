@@ -458,7 +458,7 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
 //    g->Draw("A*L");
     
     //Here is where the fit is done
-    ROOT::Math::Minimizer* migrad = ROOT::Math::Factory::CreateMinimizer("Minuit", "");
+    ROOT::Math::Minimizer* migrad = ROOT::Math::Factory::CreateMinimizer("Minuit", "Simplex");
     
     // set tolerance , etc...
     migrad->SetMaxFunctionCalls(1000000);
@@ -472,12 +472,12 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
     migrad->SetFunction(f);
     
     // Set the free variables to be minimized!
-    // migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
-    migrad->SetFixedVariable(0, "fs", 0.5);
+    migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
+    // migrad->SetFixedVariable(0, "fs", 0.5);
     migrad->SetLimitedVariable(1,"bs",(vback-vfront).Mag(), 0.001, bmin, bmax);
-    migrad->SetLimitedVariable(2,"smax",8.5, 0.01, 1, 30);
+    migrad->SetLimitedVariable(2,"smax",15, 0.01, 1, 30);
     // migrad->SetFixedVariable(2, "smax", 8.77);
-    migrad->SetLimitedVariable(3,"a", -0.5, 0.001, -5, 5);
+    migrad->SetLimitedVariable(3,"a", 0.5, 0.001, -5, 5);
     //migrad->SetLimitedVariable(4,"zo", 5, 0.001, 0.001, 25);
     //migrad->SetLimitedVariable(5,"c",c,1E-6,2E-6,2E-2);
     // migrad->SetLimitedVariable(6,"yield",cyield,0.1,0,500);
@@ -528,6 +528,8 @@ void muonFitMany(TChain* t, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc
     TParameter<double>* mask_edge = NULL;
     TParameter<double>* track_rms = NULL;
     TParameter<double>* raw_nsat = NULL;
+    TParameter<double>* PIXDIST_SIGMA = NULL;
+
     
     //arrays to store object
     TArrayD* pixel_x = NULL;
@@ -546,6 +548,7 @@ void muonFitMany(TChain* t, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc
     t->SetBranchAddress("mask_edge", &mask_edge);
     t->SetBranchAddress("curve_track_rms", &track_rms);
     t->SetBranchAddress("raw_nsat", &raw_nsat);
+    t->SetBranchAddress("PIXDIST_SIGMA", &PIXDIST_SIGMA);
     
     t->SetBranchAddress("pixel_x", &pixel_x);
     t->SetBranchAddress("pixel_y", &pixel_y);
@@ -570,7 +573,7 @@ void muonFitMany(TChain* t, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc
         fout << RUNID << " " << EXTID << " " << cluster_id << " " << npix->GetVal() << " " << slength->GetVal() << " ";
         
         TH2F* cl = ArraysToTH2F(pixel_x,pixel_y,pixel_val);
-        muonFit(cl, tMuon, b, c, sadc_, sthr_);
+        muonFit(cl, tMuon, b, c, PIXDIST_SIGMA->GetVal(), sthr_);
         if(abs(b[1]) > 9) cout << i << endl;
         cl->Delete();
         
@@ -602,7 +605,7 @@ void saveMuonFitToFile(const char* outfile, const char *infile, Double_t c, Doub
     // histogramArray[2] = new TH1D("sigmamaxErr", "sigmaMaxErr", 50, 0, 1);
     // histogramArray[3] = new TH1D("aErr", "aErr", 50, 0, 10);
 
-    muonFitMany(tMuonTracks, tMuonFit, branches, c, sadc_, sthr_);
+    muonFitMany(tMuonTracks, tMuonFit, branches, c, sadc_, 4);
 
     fMuonFit->Write();
     delete fMuonFit;

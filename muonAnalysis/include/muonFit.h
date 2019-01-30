@@ -17,7 +17,7 @@
 #include "TFile.h"
 #include <fstream>
 
-const Double_t zd = 500; //thickness of the CCD in microns
+const Double_t zd = 675; //thickness of the CCD in microns
 const Double_t ps = 15; //pixel size in um
 const Double_t cyield = 70; //yield (in electrons per um) of region with ~constant deposition
 
