@@ -1,38 +1,27 @@
-void plotXY(vector<double> *x, vector<double> *y, TH2D *h2){
 
-	// TFile *f = TFile::Open("../../rootfiles/dedxfilter_8kev.root", "READ");
-	// if ((!f) || (f->IsZombie())) {delete f; return;} //
-	// TTree * t; f->GetObject("dedxFilterTree", t);
-	// TH2D * h2 = new TH2D("h2", "h2", 4000, 0, 4000, 2000, 0, 2000);
-	
-	// vector<double> *x;
-	// vector<double> *y;
-	// cout << -1 << endl;
-	// t->SetBranchAddress("x", &x);
-	// t->SetBranchAddress("y", &y);
-	// cout << "test" << endl;
-	// t->GetEntry(35);
 
-	double xmin, ymin, xmax, ymax;
+void plotManyTracks(int start=0){
 
-	xmin = *min_element(x->begin(), x->end());
-	xmax = *max_element(x->begin(), x->end());
-	ymin = *min_element(y->begin(), y->end());
-	ymax = *max_element(y->begin(), y->end());
+	const char *infile = "/home/apiers/mnt/mox/DAMICDiffusion/rootfiles/snolab/hist/muon_tracks_35kev_0997ccf.root";
+	TFile *f = new TFile(infile, "READ");
+	gStyle->SetOptStat(0);
+	gStyle->SetOptTitle(0);
+	char histogramName[100];
+	int n=6;
+	TCanvas *c = new TCanvas("c", "c", 800, 600);
+	c->Divide(n,n);
 
-	h2->GetXaxis()->SetRangeUser(xmin, xmax);
-	h2->GetYaxis()->SetRangeUser(ymin, ymax);
-	cout << 1 << endl;
+	for(int i=0; i<n*n; i++){
+		cout << i << endl;
+		sprintf(histogramName, "muon%i", i+start);
+		TH2D *h2 = new TH2D();
+		h2 = (TH2D*)f->Get(histogramName);
+		h2->GetXaxis()->SetLabelSize(0);
+		h2->GetYaxis()->SetLabelSize(0);
+		c->cd(i+1);
+		h2->Draw();
 
-	// char *logicString = new char[100];
-	// // sprintf(logicString, "z && (trackID == %i)", i);
-	// cout << 2 << endl;
-	// t->Draw("y:x>>h2", "z*(trackID==35)", "colz");
+	}
 
-	// delete f;
-	// delete h2;
-	// delete x;
-	// delete y;
 	return;
-
 }
