@@ -5,6 +5,7 @@ using namespace std;
 
 void muonFilter(TChain* chain, char const * outfile, double minEnergy, double minccf)
 {
+	double conversion = 3E-4;
 	cout << "Creating new root file: " << outfile << endl;
 	TFile* muonData = new TFile(outfile, "recreate");
 	cout << "Creating new tree ... " << endl;
@@ -33,7 +34,7 @@ void muonFilter(TChain* chain, char const * outfile, double minEnergy, double mi
 		nbytes += nb;
 
 		// If we satisfy the rejection criteria for a muon, fill the tree
-		if( abs(ccf->GetVal()) >  minccf && chargetot->GetVal()/10300*6.4 > minEnergy)
+		if( abs(ccf->GetVal()) >  minccf && chargetot->GetVal()*conversion> minEnergy)
 		{
 			cout << i << endl;
 			newtree->Fill();		
