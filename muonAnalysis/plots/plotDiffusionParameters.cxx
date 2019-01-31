@@ -23,27 +23,27 @@ double computeSkewedMean(double mean, double sigma, double alpha){
 
 void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, double ANeutron=220, double bNeutron=5.6E-4){
 
-	const double zd = 500;
+	const double zd = 675;
 	gStyle->SetOptFit(1);
-	// string infile = "../../rootfiles/snolab/likelihoodFit/muonTree40kev_0997ccf_fits_subext.root";
-	string infile = "../../rootfiles/likelihoodFit/muonTree15kev_0999ccf_fits.root";
+	string infile = "../../rootfiles/snolab/likelihoodFit/muonTree40kev_0997ccf_fits_subext.root";
+	// string infile = "../../rootfiles/likelihoodFit/muonTree15kev_0999ccf_fits.root";
 	TFile *f = new TFile(infile.c_str());
 	TTree *t = (TTree*)f->Get("muonFit");
 
 	// Define ranges for each fit
-	// double sigmaRangeMin = 10;
-	// double sigmaRangeMax = 30;
-	// double sigmaFitMin = 14;
-	// double sigmaFitMax = 17;
-	// double aFitMin = -1;
-	// double aFitMax = 1.5;
+	double sigmaRangeMin = 10;
+	double sigmaRangeMax = 30;
+	double sigmaFitMin = 14;
+	double sigmaFitMax = 17;
+	double aFitMin = -1;
+	double aFitMax = 1;
 
-	double sigmaRangeMin = -5;
-	double sigmaRangeMax = 15;
-	double sigmaFitMin = 7;
-	double sigmaFitMax = 10;
-	double aFitMin = -3;
-	double aFitMax = 1.5;
+	// double sigmaRangeMin = -5;
+	// double sigmaRangeMax = 15;
+	// double sigmaFitMin = 7;
+	// double sigmaFitMax = 10;
+	// double aFitMin = -3;
+	// double aFitMax = 1.5;
 
 
 	// Create and fill histograms from tree data
@@ -73,7 +73,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 
 	// Create skewed gaussian function to fit
 	TF1 *sigmamaxSkew = new TF1("sigmaSkew", skewedGaussian, sigmaFitMin, sigmaFitMax, 4);
-	sigmamaxSkew->SetParameters(sigmamaxFit->GetParameter(0), sigmamaxFit->GetParameter(1), sigmamaxFit->GetParameter(2), 2);
+	sigmamaxSkew->SetParameters(sigmamaxFit->GetParameter(0), sigmamaxFit->GetParameter(1), sigmamaxFit->GetParameter(2), -2);
 	sigmamaxSkew->SetParNames("N", "mean", "sigma", "skew");
 	sigmamax->Fit("sigmaSkew", "QIR0");
 	// sigmamaxFit->Draw("same");
@@ -97,8 +97,10 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	// Compute diffusion parameters
 	double A, b;
 	
+	cout << "a: " << computeSkewedMean(fASkew->GetParameter(1), fASkew->GetParameter(2), fASkew->GetParameter(3)) << endl;
+	cout << "sigmamax: " << energyCorrection*computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3))/15 << endl;
 
-	b = TMath::Exp(computeSkewedMean(fASkew->GetParameter(1), fASkew->GetParameter(2), fASkew->GetParameter(3))) / zd;
+	b = TMath::Exp(-computeSkewedMean(fASkew->GetParameter(1), fASkew->GetParameter(2), fASkew->GetParameter(3))) / zd;
 	// double b = TMath::Exp(-fA->GetParameter(1)) / zd;
 	// double A = -TMath::Power(sigmamaxFit->GetParameter(1), 2) / TMath::Log(1 - b * zd);
 	A = -TMath::Power(energyCorrection*computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3)), 2) / TMath::Log(1 - b * zd);
@@ -122,7 +124,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	fm->SetParameter(0, -A);
 	fm->SetParameter(1, b);
 	fm->SetParameter(2, 1);
-	fm->SetLineWidth(2);
+	fm->SetLineWidth(3);
 	fm->SetLineColor(kBlue);
 	fm->SetTitle("Diffusion Model");
 	fm->GetXaxis()->SetTitle("Depth (#mum)");
@@ -130,13 +132,13 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	fm->Draw();
 
 	// neutron data diffusion
-	TF1 *fn = new TF1("fNeutron", "TMath::Sqrt([0]*TMath::Log([2]-x*[1]))", 0, zd);		
-	fn->SetParameter(0, -ANeutron);
-	fn->SetParameter(1, bNeutron);
-	fn->SetParameter(2, 1);
-	fn->SetLineWidth(2);
-	fn->SetLineColor(kRed);
-	fn->Draw("same");
+	// TF1 *fn = new TF1("fNeutron", "TMath::Sqrt([0]*TMath::Log([2]-x*[1]))", 0, zd);		
+	// fn->SetParameter(0, -ANeutron);
+	// fn->SetParameter(1, bNeutron);
+	// fn->SetParameter(2, 1);
+	// fn->SetLineWidth(2);
+	// fn->SetLineColor(kRed);
+	// fn->Draw("same");
 
 	// Make Legend
 	TLegend *leg = new TLegend(0.42, 0.15, 0.88, 0.35);
@@ -159,7 +161,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 		fmFix->SetParameter(1, bfix);
 		fmFix->SetParameter(2, 1);
 		fmFix->SetLineWidth(2);
-		fmFix->SetLineColor(kGreen);
+		fmFix->SetLineColor(kBlack);
 		fmFix->SetLineStyle(2);
 		fmFix->Draw("same");
 
@@ -167,6 +169,8 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 		sprintf(fmFixLeg, "Fixed A Value. A=%.1e #mum^{2}, b=%.1e #mum^{-1}", Afix, bfix);
 		leg->AddEntry("fmFix", fmFixLeg);
 	}
+
+
 
 	leg->Draw();
 	// pad2->cd();
