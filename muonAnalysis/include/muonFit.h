@@ -20,6 +20,7 @@
 const Double_t zd = 675; //thickness of the CCD in microns
 const Double_t ps = 15; //pixel size in um
 const Double_t cyield = 70; //yield (in electrons per um) of region with ~constant deposition
+const Int_t nTaylor = 5; // number of terms for the taylor expansion fit
 
 
 TH2F* ArraysToTH2F(TArrayD* x, TArrayD* y, TArrayD* val);

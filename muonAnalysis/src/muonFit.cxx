@@ -62,8 +62,18 @@ Double_t sigmaxy(Double_t z, Double_t A, Double_t b, Double_t zo){
     return s;
 }
 
+
+Double_t sigmaxyTaylor(Double_t z, Double_t Ab, Double_t b, Double_t zo, Int_t n){
+    Double_t s = Ab*z;
+    if(z > zo){
+        for(int i=1; i<n+1; i++) s += Ab*z*TMath::Power(b*z, i)/(i+1);
+    }
+
+    return TMath::Sqrt(s);
+}
+
 Double_t fitf(Double_t z, Double_t* par){
-    
+ 
     //par[0] - par[3] are startx, starty, endx, endy
     Double_t xs = par[0];
     Double_t ys = par[1];
@@ -87,7 +97,7 @@ Double_t fitf(Double_t z, Double_t* par){
         
         //par[4] - par[6] are the diffusion model parameters
         //sigma comes in here
-        Double_t bot = (TMath::Sqrt2()/ps)*sigmaxy(z,par[4],par[5],par[6]);
+        Double_t bot = (TMath::Sqrt2()/ps)*sigmaxyTaylor(z,par[4],par[5],par[6], nTaylor);
         ne = cfact*(TMath::Erf((i+0.5-x)/bot) - TMath::Erf((i-0.5-x)/bot))*(TMath::Erf((j+0.5-y)/bot) - TMath::Erf((j-0.5-y)/bot));
     }
     
@@ -98,6 +108,7 @@ Double_t fitf(Double_t z, Double_t* par){
     
     return ne;
 }
+
 
 double TrackLogLikelihood(const double *xx){
     
@@ -113,11 +124,13 @@ double TrackLogLikelihood(const double *xx){
     Double_t xe = vb.X()+0.5;
     Double_t ye = vb.Y()+0.5;
     
-    const Double_t smax = xx[2];
+    // const Double_t smax = xx[2];
     const Double_t zo = xx[4];
-    const Double_t b = (TMath::ATan(xx[3])/TMath::Pi()+0.5)/(zd-zo);
-    Double_t A = -1. * smax * smax / TMath::Log(1.-b*(zd-zo));
-    
+    // const Double_t b = (TMath::ATan(xx[3])/TMath::Pi()+0.5)/(zd-zo);
+    // Double_t A = -1. * smax * smax / TMath::Log(1.-b*(zd-zo));
+    Double_t b = xx[3];
+    Double_t Ab = xx[2];
+
     //also fit for the ADC to keV conversion factor
     const Double_t c = xx[5]*1000./3.6;
     const Double_t yield = xx[6];
@@ -141,10 +154,10 @@ double TrackLogLikelihood(const double *xx){
             if(obs==0) continue;
             
             //update function with corresponding parameters
-            par[0] = xs; par[1] = ys; par[2] = xe; par[3] = ye; par[4] = A; par[5] = b; par[6] = zo; par[7] = bxlow+i; par[8] = bylow+j;
+            par[0] = xs; par[1] = ys; par[2] = xe; par[3] = ye; par[4] = Ab; par[5] = b; par[6] = zo; par[7] = bxlow+i; par[8] = bylow+j;
             
             //to obtain maximum sigmaxy along z.
-            Double_t sxy = sigmaxy(zd,A,b,zo) * TMath::Sqrt(zd*zd + (xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps) / TMath::Sqrt((xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps);
+            Double_t sxy = sigmaxyTaylor(zd,Ab,b,zo, nTaylor) * TMath::Sqrt(zd*zd + (xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps) / TMath::Sqrt((xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps);
             
             //z coordinate corresponding to pixel
             Double_t zc = zd * ((xe-xs)*(i+bxlow-xs) + (ye-ys)*(j+bylow-ys)) / ((xe-xs)*(xe-xs) + (ye-ys)*(ye-ys));
@@ -458,12 +471,12 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
 //    g->Draw("A*L");
     
     //Here is where the fit is done
-    ROOT::Math::Minimizer* migrad = ROOT::Math::Factory::CreateMinimizer("Minuit", "Simplex");
+    ROOT::Math::Minimizer* migrad = ROOT::Math::Factory::CreateMinimizer("Minuit", "");
     
     // set tolerance , etc...
     migrad->SetMaxFunctionCalls(1000000);
     migrad->SetTolerance(0.0001);
-    migrad->SetPrintLevel(0);
+    migrad->SetPrintLevel(1);
     
     // create funciton wrapper for minmizer
     // a IMultiGenFunction type
@@ -472,12 +485,14 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
     migrad->SetFunction(f);
     
     // Set the free variables to be minimized!
-    migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
-    // migrad->SetFixedVariable(0, "fs", 0.5);
+    // migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
+    migrad->SetFixedVariable(0, "fs", 0.5);
     migrad->SetLimitedVariable(1,"bs",(vback-vfront).Mag(), 0.001, bmin, bmax);
-    migrad->SetLimitedVariable(2,"smax",15, 0.01, 1, 30);
+    // migrad->SetLimitedVariable(2,"smax",15, 0.01, 1, 30);
+    migrad->SetLimitedVariable(2, "Ab", 0.1, 0.01, 0, 1);
     // migrad->SetFixedVariable(2, "smax", 8.77);
-    migrad->SetLimitedVariable(3,"a", 0.5, 0.001, -5, 5);
+    // migrad->SetLimitedVariable(3,"a", 0.5, 0.001, -5, 5);
+    migrad->SetLimitedVariable(3, "b", 5e-4, 5e-6, 0, 1/zd);
     //migrad->SetLimitedVariable(4,"zo", 5, 0.001, 0.001, 25);
     //migrad->SetLimitedVariable(5,"c",c,1E-6,2E-6,2E-2);
     // migrad->SetLimitedVariable(6,"yield",cyield,0.1,0,500);
@@ -554,7 +569,8 @@ void muonFitMany(TChain* t, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc
     t->SetBranchAddress("pixel_y", &pixel_y);
     t->SetBranchAddress("pixel_val", &pixel_val);
     
-    Int_t nentries = t->GetEntries();
+    // Int_t nentries = t->GetEntries();
+    Int_t nentries = 50;
     
     fout << "runid:extid:clid:npix:slength:nblanked:front_x:front_y:back_x:back_y:smax:a:zo:yield:ll:mstat" << std::endl;
     
@@ -594,10 +610,10 @@ void saveMuonFitToFile(const char* outfile, const char *infile, Double_t c, Doub
 
     // Create a tree to store data
     TTree *tMuonFit = new TTree("muonFit", "muonFit");
-    tMuonFit->Branch("sigmamax", (branches));
-    tMuonFit->Branch("a", (branches + 1));
-    tMuonFit->Branch("sigmamaxErr", (branches + 2));
-    tMuonFit->Branch("aErr", (branches + 3));
+    tMuonFit->Branch("Ab", (branches));
+    tMuonFit->Branch("b", (branches + 1));
+    tMuonFit->Branch("AErr", (branches + 2));
+    tMuonFit->Branch("bErr", (branches + 3));
 
     // TH1D *histogramArray[4];
     // histogramArray[0] = new TH1D("sigmamax", "sigmamax", 50, 5, 15);
