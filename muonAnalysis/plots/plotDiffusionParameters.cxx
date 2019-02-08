@@ -21,7 +21,7 @@ double computeSkewedMean(double mean, double sigma, double alpha){
 	return mean + sigma * alpha * TMath::Sqrt(2/(TMath::Pi() * (1 + alpha*alpha)));
 }
 
-void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, double ANeutron=220, double bNeutron=5.6E-4){
+void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, double expectedSigmaMax=1, double ANeutron=220, double bNeutron=5.6E-4){
 
 	const double zd = 675;
 	gStyle->SetOptFit(1);
@@ -96,6 +96,11 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	
 	// Compute diffusion parameters
 	double A, b;
+
+	// set up the scaling for getting to expected sigma max
+	if(expectedSigmaMax != 1){
+		energyCorrection = expectedSigmaMax/(computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3))/15); 
+	}
 	
 	cout << "a: " << computeSkewedMean(fASkew->GetParameter(1), fASkew->GetParameter(2), fASkew->GetParameter(3)) << endl;
 	cout << "sigmamax: " << energyCorrection*computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3))/15 << endl;
@@ -143,7 +148,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	// Make Legend
 	TLegend *leg = new TLegend(0.42, 0.15, 0.88, 0.35);
 	char fMuonLeg[200], fNeutronLeg[200];
-	sprintf(fMuonLeg, "Muon Fit. A=%.1e #mum^{2}, b=%.1e #mum^{-1}", A, b);
+	sprintf(fMuonLeg, "Muon Fit. A=%.2e #mum^{2}, b=%.2e #mum^{-1}", A, b);
 	// sprintf(fNeutronLeg, "Iron Parameters. A=%.1e #mum^{2}, b=%.1e #mum^{-1}", ANeutron, bNeutron);
 	leg->AddEntry("fMuon", fMuonLeg);
 	// leg->AddEntry("fNeutron", fNeutronLeg);
@@ -188,6 +193,11 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	// // residue->GetYaxis()->SetTitle("#Delta#sigma_{xy} (#mum)");
 	// residue->GetYaxis()->SetLabelSize(0.1);
 	// residue->Draw();
+
+	// Solve for what the depth of what the sigma max is supposed to be
+	// ROOT::Math::WrappedTF1 wf1(fm);
+	// ROOT::Math::BrentRootFinder brf;
+	// brf.SetFunction(wf1, 0, zd)
 
 	return;
 }
