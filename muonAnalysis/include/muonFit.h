@@ -29,6 +29,8 @@ Double_t maxk(Double_t obs, Double_t ne, Double_t c);
 
 Double_t fitf(Double_t z, Double_t* par);
 
+Double_t fitfx(Double_t z, Double_t* par);
+
 double TrackLogLikelihood(const double *xx);
 
 void muonFit(TH2F* cl, TTree *tMuon = nullptr, Double_t *b = nullptr, Double_t c = 5.5E-4, Double_t sadc_ = 28, Double_t sthr_ = 2);

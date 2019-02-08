@@ -109,6 +109,45 @@ Double_t fitf(Double_t z, Double_t* par){
     return ne;
 }
 
+Double_t fitfx(Double_t z, Double_t* par){
+ 
+    //par[0] - par[3] are startx, starty, endx, endy
+    Double_t xs = par[0];
+    Double_t ys = par[1];
+    
+    Double_t xt = par[2] - par[0];
+    Double_t yt = par[3] - par[1];
+    
+    Double_t cfact = 0.25/(zd/TMath::Sqrt(zd*zd + yt*yt*ps*ps + xt*xt*ps*ps));
+    
+    //parameter is z
+    Double_t x = (z/zd)*xt + xs; //in pixels
+    Double_t y = (z/zd)*yt + ys; //in pixels
+    
+    //par[7] - par[8] are the bin numbers
+    Double_t i = par[9];
+    Double_t j = par[10];
+    
+    Double_t ne = 0;
+    
+    if(z>par[8]){
+        
+        //par[4] - par[6] are the diffusion model parameters
+        //sigma comes in here
+        Double_t botX = (TMath::Sqrt2()/ps)*sigmaxy(z,par[4], par[5], par[8]);
+        Double_t botY = (TMath::Sqrt2()/ps)*sigmaxy(z,par[6], par[7], par[8]);
+        // ne = cfact*(TMath::Erf((i+0.5-x)/bot) - TMath::Erf((i-0.5-x)/bot))*(TMath::Erf((j+0.5-y)/bot) - TMath::Erf((j-0.5-y)/bot));
+        ne = cfact*(TMath::Erf((i+0.5-x)/botX) - TMath::Erf((i-0.5-x)/botX)) * (TMath::Erf((j+0.5-y)/botY) - TMath::Erf((j-0.5-y)/botY));
+    }
+    
+    else if(x>=i-0.5 && x<i+0.5 && y>=j-0.5 && y<j+0.5){
+        
+        ne = cfact*4.;
+    }
+    
+    return ne;
+}
+
 
 double TrackLogLikelihood(const double *xx){
     
@@ -124,16 +163,19 @@ double TrackLogLikelihood(const double *xx){
     Double_t xe = vb.X()+0.5;
     Double_t ye = vb.Y()+0.5;
     
-    // const Double_t smax = xx[2];
-    const Double_t zo = xx[4];
-    // const Double_t b = (TMath::ATan(xx[3])/TMath::Pi()+0.5)/(zd-zo);
-    // Double_t A = -1. * smax * smax / TMath::Log(1.-b*(zd-zo));
-    Double_t b = xx[3];
-    Double_t Ab = xx[2];
+    
+    const Double_t zo = xx[6];
+    const Double_t smaxX = xx[2];
+    const Double_t bX = TMath::Exp(-1*xx[3])/(zd-zo);
+    const Double_t smaxY = xx[4];
+    const Double_t bY = TMath::Exp(-1*xx[5])/(zd-zo);
+    Double_t AX = -1. * smaxX * smaxX / TMath::Log(1.-bX*(zd-zo));
+    Double_t AY = -1. * smaxY * smaxY / TMath::Log(1.-bY*(zd-zo));
+    
 
     //also fit for the ADC to keV conversion factor
-    const Double_t c = xx[5]*1000./3.6;
-    const Double_t yield = xx[6];
+    const Double_t c = xx[7];
+    const Double_t yield = xx[8];
     
     Int_t nx = cluster->GetNbinsX();
     Int_t ny = cluster->GetNbinsY();
@@ -142,7 +184,7 @@ double TrackLogLikelihood(const double *xx){
     
     //To hold information
     Double_t ll = 0;    
-    Double_t par[9] = {0};
+    Double_t par[11] = {0};
     
     //Now loop over cluster to obtain ll
     for(Int_t i=1; i<=nx; i++)
@@ -154,11 +196,13 @@ double TrackLogLikelihood(const double *xx){
             if(obs==0) continue;
             
             //update function with corresponding parameters
-            par[0] = xs; par[1] = ys; par[2] = xe; par[3] = ye; par[4] = Ab; par[5] = b; par[6] = zo; par[7] = bxlow+i; par[8] = bylow+j;
+            par[0] = xs; par[1] = ys; par[2] = xe; par[3] = ye; par[4] = AX; par[5] = bX; par[6] =AY ; par[7] = bY; par[8] = zo; par[9] = bxlow+i; par[10] = bylow+j;
             
             //to obtain maximum sigmaxy along z.
-            Double_t sxy = sigmaxyTaylor(zd,Ab,b,zo, nTaylor) * TMath::Sqrt(zd*zd + (xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps) / TMath::Sqrt((xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps);
-            
+            Double_t sx = sigmaxy(zd,AX,bX,zo) * TMath::Sqrt(zd*zd + (xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps) / TMath::Sqrt((xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps);
+            Double_t sy = sigmaxy(zd,AY,bY,zo) * TMath::Sqrt(zd*zd + (xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps) / TMath::Sqrt((xe-xs)*(xe-xs)*ps*ps + (ye-ys)*(ye-ys)*ps*ps);
+            Double_t sxy = TMath::Sqrt(sx*sx + sy*sy);
+
             //z coordinate corresponding to pixel
             Double_t zc = zd * ((xe-xs)*(i+bxlow-xs) + (ye-ys)*(j+bylow-ys)) / ((xe-xs)*(xe-xs) + (ye-ys)*(ye-ys));
             
@@ -186,7 +230,7 @@ double TrackLogLikelihood(const double *xx){
             
             //number of electrons expected
             Double_t ne = 0;
-            for(Double_t k=is; k<ie; k+=istep) ne += yield*fitf(k, par);
+            for(Double_t k=is; k<ie; k+=istep) ne += yield*fitfx(k, par);
             ne *= istep;
             
             //incase the pixel is non-zero
@@ -480,27 +524,23 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
     
     // create funciton wrapper for minmizer
     // a IMultiGenFunction type
-    ROOT::Math::Functor f(&TrackLogLikelihood,7);
+    ROOT::Math::Functor f(&TrackLogLikelihood,9);
     migrad->SetErrorDef(0.5);
     migrad->SetFunction(f);
     
     // Set the free variables to be minimized!
-    // migrad->SetLimitedVariable(0,"fs",0.5, 0.0001, fmin, fmax);
     migrad->SetFixedVariable(0, "fs", 0.5);
     migrad->SetLimitedVariable(1,"bs",(vback-vfront).Mag(), 0.001, bmin, bmax);
-    // migrad->SetLimitedVariable(2,"smax",15, 0.01, 1, 30);
-    migrad->SetLimitedVariable(2, "Ab", 0.1, 0.01, 0, 1);
-    // migrad->SetFixedVariable(2, "smax", 8.77);
-    // migrad->SetLimitedVariable(3,"a", 0.5, 0.001, -5, 5);
-    migrad->SetLimitedVariable(3, "b", 5e-4, 5e-6, 0, 1/zd);
-    //migrad->SetLimitedVariable(4,"zo", 5, 0.001, 0.001, 25);
-    //migrad->SetLimitedVariable(5,"c",c,1E-6,2E-6,2E-2);
-    // migrad->SetLimitedVariable(6,"yield",cyield,0.1,0,500);
+    migrad->SetLimitedVariable(2, "smaxX", 15, 0.01, 5, 25);
+    migrad->SetLimitedVariable(3, "aX", 0.5, 5e-4, -5, 5);
+    migrad->SetLimitedVariable(4, "smaxY", 15, 0.01, 5, 25);
+    migrad->SetLimitedVariable(5, "aY", 0.5, 5e-4, -5, 5);
     
     //migrad->SetFixedVariable(0,"fs",0);
-    migrad->SetFixedVariable(5,"c",c);
-    migrad->SetFixedVariable(4,"zo",0);
-    migrad->SetFixedVariable(6,"yield",cyield);
+    migrad->SetFixedVariable(6,"zo",0);
+    migrad->SetFixedVariable(7,"c",c);
+    migrad->SetFixedVariable(8,"yield",cyield);
+
     Bool_t mstat = migrad->Minimize();
     const double *mval = migrad->X();
     const double *merr = migrad->Errors();
@@ -509,11 +549,19 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
     fout << (vfront + mval[0]*(vback-vfront).Unit()).X() << " " << (vfront + mval[0]*(vback-vfront).Unit()).Y() << " " << (vfront + mval[1]*(vback-vfront).Unit()).X() << " " << (vfront + mval[1]*(vback-vfront).Unit()).Y() << " ";
     fout << mval[2] << " " << mval[3] << " " << mval[4] << " " << mval[6] << " " << migrad->MinValue() << " " << mstat << std::endl;
 
+    // Populate the array corresponding to the tMuon branches and fill. Saving the data to a tree.
     if(tMuon != nullptr){
+        // Parmeters
         b[0] = mval[2];
         b[1] = mval[3];
-        b[2] = merr[2];
-        b[3] = merr[3];
+        b[2] = mval[4];
+        b[3] = mval[5];
+        // Parameter errors
+        b[4] = merr[2];
+        b[5] = merr[3];
+        b[6] = merr[4];
+        b[7] = merr[5];
+        b[8] = slope;
         tMuon->Fill();
     }
 
@@ -522,7 +570,6 @@ void muonFit(TH2F* cl, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc_, Do
     qalong->Delete();
     cluster->Delete();
 
-    
     return;
 }
 
@@ -569,8 +616,8 @@ void muonFitMany(TChain* t, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc
     t->SetBranchAddress("pixel_y", &pixel_y);
     t->SetBranchAddress("pixel_val", &pixel_val);
     
-    // Int_t nentries = t->GetEntries();
-    Int_t nentries = 50;
+    Int_t nentries = t->GetEntries();
+    // Int_t nentries = 50;
     
     fout << "runid:extid:clid:npix:slength:nblanked:front_x:front_y:back_x:back_y:smax:a:zo:yield:ll:mstat" << std::endl;
     
@@ -590,7 +637,7 @@ void muonFitMany(TChain* t, TTree *tMuon, Double_t *b, Double_t c, Double_t sadc
         
         TH2F* cl = ArraysToTH2F(pixel_x,pixel_y,pixel_val);
         muonFit(cl, tMuon, b, c, PIXDIST_SIGMA->GetVal(), sthr_);
-        if(abs(b[1]) > 9) cout << i << endl;
+        if(abs(b[1]) > 4) cout << i << endl;
         cl->Delete();
         
     }
@@ -606,14 +653,19 @@ void saveMuonFitToFile(const char* outfile, const char *infile, Double_t c, Doub
     TChain *tMuonTracks = (TChain*)fMuonTracks->Get("clusters_tree");
     TFile *fMuonFit = new TFile(outfile, "RECREATE");
 
-    double branches[4];
+    double branches[9];
 
     // Create a tree to store data
     TTree *tMuonFit = new TTree("muonFit", "muonFit");
-    tMuonFit->Branch("Ab", (branches));
-    tMuonFit->Branch("b", (branches + 1));
-    tMuonFit->Branch("AErr", (branches + 2));
-    tMuonFit->Branch("bErr", (branches + 3));
+    tMuonFit->Branch("sigmaMaxX", (branches));
+    tMuonFit->Branch("aX", (branches + 1));
+    tMuonFit->Branch("sigmaMaxY", (branches + 2));
+    tMuonFit->Branch("aY", (branches + 3));
+    tMuonFit->Branch("sigmaMaxXErr", (branches + 4));
+    tMuonFit->Branch("aXErr", (branches + 5));
+    tMuonFit->Branch("sigmaMaxYErr", (branches + 6));
+    tMuonFit->Branch("aYErr", (branches + 7));
+    tMuonFit->Branch("slope", (branches + 8));
 
     // TH1D *histogramArray[4];
     // histogramArray[0] = new TH1D("sigmamax", "sigmamax", 50, 5, 15);
