@@ -20,7 +20,6 @@
 const Double_t zd = 675; //thickness of the CCD in microns
 const Double_t ps = 15; //pixel size in um
 const Double_t cyield = 70; //yield (in electrons per um) of region with ~constant deposition
-const Int_t nTaylor = 5; // number of terms for the taylor expansion fit
 
 
 TH2F* ArraysToTH2F(TArrayD* x, TArrayD* y, TArrayD* val);
@@ -28,8 +27,6 @@ TH2F* ArraysToTH2F(TArrayD* x, TArrayD* y, TArrayD* val);
 Double_t maxk(Double_t obs, Double_t ne, Double_t c);
 
 Double_t fitf(Double_t z, Double_t* par);
-
-Double_t fitfx(Double_t z, Double_t* par);
 
 double TrackLogLikelihood(const double *xx);
 

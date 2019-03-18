@@ -9,9 +9,13 @@ void sigmavEnergy(){
 	j->Add("short2018.root");
 
 	// Defining sigma max points from the muon data
-	const int n = 2;
-	double energykev[n] = {0.1, 4.15};
-	double sigmamax[n] = {0.951, 0.975};
+	const int n = 1;
+	// double energykev[n] = {0.1, 4.15};
+	// double sigmamax[n] = {0.951, 0.975};
+
+    double energykev[n] = {4.15};
+    double sigmamax[n] = {0.975};
+
 
 	j->SetAlias("enell","LL_eneh.fVal*2.6e-4*(  1.039*(EXTID==1) + 0.962*(EXTID==2) + 0.999*(EXTID==3) + 0.986*(EXTID==4) + 1.034*(EXTID==6) + 0.982*(EXTID==11) + 0.993*(EXTID==12) )");
     j->SetAlias("sigma","LL_sigma.fVal");
@@ -25,7 +29,7 @@ void sigmavEnergy(){
     j->SetMarkerSize(1); 
     sigve->SetMarkerStyle(20);
     sigve->SetMarkerSize(1);
-    j->Draw("sigma:enell >> sigve", "sigma > (0.91 + 0.005*enell) && sigma < (1.0 + 0.005*enell)");
+    j->Draw("sigma:enell >> sigve", "sigma > (0.91 + 0.005*enell) && sigma < (1.0 + 0.005*enell) && enell > 0.5");
     
 
 
@@ -33,18 +37,19 @@ void sigmavEnergy(){
     TF1 *fit = new TF1("sve", "[0]+[1]*x", 0, 15);
     fit->SetParNames("#sigma_{max}(0)", "#alpha");
     fit->SetParameters(1, 0.01);
-    fit->SetLineWidth(3);
+    fit->SetLineWidth(5);
+    fit->SetLineColor(kRed);
     sigve->Fit("sve", "R0", "", 0.5, 15);
 
 
-    fit->SetParameter(0, sigmamax[1]-fit->GetParameter(1)*energykev[1]);
-    j->Draw("sigma:enell >> sigve", "sigma < 1.2", "same");
+    fit->SetParameter(0, sigmamax[n-1]-fit->GetParameter(1)*energykev[n-1]);
+    j->Draw("sigma:enell >> sigve", "sigma < 1.2 && enell > 0.5", "same");
     fit->Draw("same");
 
     TGraph *muonSigmaPoints = new TGraph(2, energykev, sigmamax);
     muonSigmaPoints->SetMarkerStyle(29);
-    muonSigmaPoints->SetMarkerColor(kViolet);
-    muonSigmaPoints->SetMarkerSize(3);
+    muonSigmaPoints->SetMarkerColor(kBlue);
+    muonSigmaPoints->SetMarkerSize(5);
     muonSigmaPoints->Draw("sameP");
     muonSigmaPoints->SetName("msp");
 
@@ -98,17 +103,21 @@ void sigmavEnergy(){
     // Plotting projection onto the y axis
     gStyle->SetOptFit(1);
     double dE = 2;
-    double eRangeMin = energykev[1] - dE/2; 
-    double eRangeMax = energykev[1] + dE/2;
+    double eRangeMin = energykev[n-1] - dE/2; 
+    double eRangeMax = energykev[n-1] + dE/2;
 
     TCanvas *c2 = new TCanvas("c2", "c2", 800, 600);
     TH1D *sigmaxy = sigve->ProjectionY("sigmaxy projection", sigve->GetXaxis()->FindBin(eRangeMin), sigve->GetXaxis()->FindBin(eRangeMax));
-    sigmaxy->SetTitle("#sigma_{xy} of events around Muon energy scaling");
+    char sigmaxyTitle[150];
+    sprintf(sigmaxyTitle, "#sigma_{xy} of events between %.1f and %.1f keV", eRangeMin, eRangeMax);
+    sigmaxy->SetTitle(sigmaxyTitle);
     sigmaxy->Draw("hist");
-    cout << sigmaxy->GetBinCenter(sigmaxy->GetMaximumBin()) << endl;
     TF1 *sigmaxyFit = new TF1("sigmaxyFit", "gaus", 0.8, 1.1);
     sigmaxy->Fit("sigmaxyFit", "RI");
     sigmaxyFit->Draw("same");
+
+    // Print expected value of sigma given 
+    cout << "Sigma max at E=0:   " << sigmaxyFit->GetParameter(1) - energykev[n-1]*fit->GetParameter(1) << endl;
 
 	return;
 }

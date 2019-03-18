@@ -25,7 +25,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 
 	const double zd = 675;
 	gStyle->SetOptFit(1);
-	string infile = "../../rootfiles/snolab/likelihoodFit/muonTree40kev_0997ccf_fits_subext.root";
+	string infile = "../../rootfiles/snolab/likelihoodFit/muonTree40kev_0997ccf_fits_subext_exp.root";
 	// string infile = "../../rootfiles/likelihoodFit/muonTree15kev_0999ccf_fits.root";
 	TFile *f = new TFile(infile.c_str());
 	TTree *t = (TTree*)f->Get("muonFit");
@@ -33,10 +33,10 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	// Define ranges for each fit
 	double sigmaRangeMin = 10;
 	double sigmaRangeMax = 30;
-	double sigmaFitMin = 14;
+	double sigmaFitMin = 14.5;
 	double sigmaFitMax = 17;
-	double aFitMin = -1;
-	double aFitMax = 1;
+	double aFitMin = 0;
+	double aFitMax = 1.5;
 
 	// double sigmaRangeMin = -5;
 	// double sigmaRangeMax = 15;
@@ -63,27 +63,30 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	// Plot sigma max and fit
 	TCanvas *c1 = new TCanvas("c1", "c1", 800, 600);
 	sigmamax->SetLineWidth(2);
-	TF1 *sigmamaxFit = new TF1("sigmamaxFit", "gaus", sigmaFitMin, sigmaFitMax);
+	TF1 *sigmamaxFit = new TF1("sigmamaxFit", "landau", sigmaFitMin, sigmaFitMax);
 	sigmamax->Draw();
 
 	// TF1 *sigmamaxFit = new TF1("sigmamaxFit", "[0]*TMath::Exp(-[1])*TMath::Power([1],x)/TMath::Gamma(x+1)", 0, 10);
 	// sigmamaxFit->SetParameter(1, 8.5);
 	// sigmamaxFit->SetParameter(0, 260);
 	sigmamax->Fit("sigmamaxFit", "QIR0");
+	sigmamaxFit->Draw("same");
+	cout << sigmamaxFit->GetParameter(0) << "   " << sigmamaxFit->GetParameter(1) << endl;
 
 	// Create skewed gaussian function to fit
 	TF1 *sigmamaxSkew = new TF1("sigmaSkew", skewedGaussian, sigmaFitMin, sigmaFitMax, 4);
 	sigmamaxSkew->SetParameters(sigmamaxFit->GetParameter(0), sigmamaxFit->GetParameter(1), sigmamaxFit->GetParameter(2), -2);
 	sigmamaxSkew->SetParNames("N", "mean", "sigma", "skew");
-	sigmamax->Fit("sigmaSkew", "QIR0");
+	// sigmamax->Fit("sigmaSkew", "QIR0");
 	// sigmamaxFit->Draw("same");
-	sigmamaxSkew->Draw("same");
+	// sigmamaxSkew->Draw("same");
 
 	// Plot a and fit
 	TCanvas *c2 = new TCanvas("c2", "c2", 800, 600);
 	a->SetLineWidth(2);
-	TF1 *fA = new TF1("aFit", "gaus", -2.5, 2.5);
+	TF1 *fA = new TF1("aFit", "landau", -2.5, 2.5);
 	a->Fit("aFit", "QIR0");
+
 
 	// Make the skewed guassian
 	TF1 *fASkew = new TF1("aSkew", skewedGaussian, aFitMin, aFitMax, 4);
@@ -91,24 +94,31 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	fASkew->SetParNames("N", "mean", "sigma", "skew");
 	a->Fit("aSkew", "QIR0");
 	a->Draw();
+	fA->Draw("same");
 	// fA->Draw("same");
-	fASkew->Draw("same");
+	// fASkew->Draw("same");
 	
 	// Compute diffusion parameters
 	double A, b;
 
 	// set up the scaling for getting to expected sigma max
 	if(expectedSigmaMax != 1){
-		energyCorrection = expectedSigmaMax/(computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3))/15); 
+		energyCorrection = expectedSigmaMax/(computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3))/15);
+		// energyCorrection = expectedSigmaMax/(sigmamaxFit->GetParameter(1)/15); 
 	}
 	
 	cout << "a: " << computeSkewedMean(fASkew->GetParameter(1), fASkew->GetParameter(2), fASkew->GetParameter(3)) << endl;
 	cout << "sigmamax: " << energyCorrection*computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3))/15 << endl;
+	// cout << "a: " << fA->GetParameter(1) << endl;
+	// cout << "sigmamax (pixels): " << energyCorrection*sigmamaxFit->GetParameter(1)/15 << endl;
 
 	b = TMath::Exp(-computeSkewedMean(fASkew->GetParameter(1), fASkew->GetParameter(2), fASkew->GetParameter(3))) / zd;
+	A = -TMath::Power(energyCorrection*computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3)), 2) / TMath::Log(1 - b * zd);
+
+	// b = TMath::Exp(-fA->GetParameter(1)) / zd;
 	// double b = TMath::Exp(-fA->GetParameter(1)) / zd;
 	// double A = -TMath::Power(sigmamaxFit->GetParameter(1), 2) / TMath::Log(1 - b * zd);
-	A = -TMath::Power(energyCorrection*computeSkewedMean(sigmamaxSkew->GetParameter(1), sigmamaxSkew->GetParameter(2), sigmamaxSkew->GetParameter(3)), 2) / TMath::Log(1 - b * zd);
+	// A = -TMath::Power(energyCorrection*sigmamaxFit->GetParameter(1), 2) / TMath::Log(1 - b * zd);
 	cout << "A: " << A << endl;
 	cout << "b: " << b << endl;		
 
@@ -129,7 +139,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	fm->SetParameter(0, -A);
 	fm->SetParameter(1, b);
 	fm->SetParameter(2, 1);
-	fm->SetLineWidth(3);
+	fm->SetLineWidth(4);
 	fm->SetLineColor(kBlue);
 	fm->SetTitle("Diffusion Model");
 	fm->GetXaxis()->SetTitle("Depth (#mum)");
@@ -146,7 +156,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 	// fn->Draw("same");
 
 	// Make Legend
-	TLegend *leg = new TLegend(0.42, 0.15, 0.88, 0.35);
+	TLegend *leg = new TLegend(0.35, 0.15, 0.88, 0.38);
 	char fMuonLeg[200], fNeutronLeg[200];
 	sprintf(fMuonLeg, "Muon Fit. A=%.2e #mum^{2}, b=%.2e #mum^{-1}", A, b);
 	// sprintf(fNeutronLeg, "Iron Parameters. A=%.1e #mum^{2}, b=%.1e #mum^{-1}", ANeutron, bNeutron);
@@ -165,7 +175,7 @@ void plotDiffusionParameters(bool fixA=false, double energyCorrection=0.97, doub
 		fmFix->SetParameter(0, -Afix);
 		fmFix->SetParameter(1, bfix);
 		fmFix->SetParameter(2, 1);
-		fmFix->SetLineWidth(2);
+		fmFix->SetLineWidth(4);
 		fmFix->SetLineColor(kBlack);
 		fmFix->SetLineStyle(2);
 		fmFix->Draw("same");
