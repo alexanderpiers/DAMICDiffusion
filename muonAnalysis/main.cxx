@@ -92,7 +92,7 @@ int main(int argc, char **argv){
 	// plotAllMuonTracks("~/goodMuons.root");
 	// saveAllMuonTracks();
 
-	saveMuonFitToFile("~/DAMICDiffusion/rootfiles/snolab/likelihoodFit/muonTree40kev_0997ccf_fits_subext_simplex.root", "~/DAMICDiffusion/rootfiles/snolab/goodMuons40keV_400kev_0997ccf_subext.root", 3E-4);
+	saveMuonFitToFile("~/DAMICDiffusion/rootfiles/snolab/likelihoodFit/muonTree40kev_0997ccf_fits_subext_exp.root", "~/DAMICDiffusion/rootfiles/snolab/goodMuons40keV_400kev_0997ccf_subext.root", 3E-4);
 
 	
 	cout << "Analysis successfully run." << endl;
